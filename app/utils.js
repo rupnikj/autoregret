@@ -1,0 +1,4 @@
+// App utilities (placeholder)
+export function greet(name) {
+  return `Hello, ${name}!`;
+} 
