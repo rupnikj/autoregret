@@ -20,10 +20,10 @@ export function initPanel() {
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = `
     <style>
-      .panel-header { display: flex; align-items: center; justify-content: space-between; height: 48px; background: #f7faff; border-radius: 10px 10px 0 0; box-shadow: 0 1px 0 #e0e6ef; padding: 0 16px; border-bottom: 2px solid #dde3ec; font-weight: 600; font-size: 16px; letter-spacing: 0.5px; position: relative; z-index: 10; margin-bottom: 8px; }
+      .panel-header { display: flex; align-items: center; justify-content: space-between; height: 48px; background: #f7faff; border-radius: 10px 10px 0 0; box-shadow: 0 2px 16px rgba(0,0,0,0.2), 0 8px 24px rgba(0,0,0,0.08); padding: 0 16px; border-bottom: 2px solid #dde3ec; font-weight: 600; font-size: 16px; letter-spacing: 0.5px; position: relative; z-index: 10; margin-bottom: 8px; }
       .panel-header-title { color: #007aff; font-size: 16px; font-weight: 600; letter-spacing: 0.5px; }
-      .settings-btn { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 18px; margin-left: 8px; box-shadow: 0 1px 2px #e0e6ef; transition: background 0.2s; position: static; }
-      .settings-btn:hover { background: #f0f4fa; }
+      .settings-btn, .purge-btn { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 18px; margin-left: 8px; box-shadow: 0 1px 2px #e0e6ef; transition: background 0.2s; position: static; }
+      .settings-btn:hover, .purge-btn:hover { background: #f0f4fa; }
       .tabs { display: flex; }
       .tab { flex: 1; padding: 8px; cursor: pointer; background: #eee; border-bottom: 2px solid transparent; text-align: center; }
       .tab.active { background: #fff; border-bottom: 2px solid #007aff; }
@@ -43,7 +43,10 @@ export function initPanel() {
     </style>
     <div class="panel-header">
       <span class="panel-header-title">AutoRegret</span>
-      <button class="settings-btn" title="Settings">⚙️</button>
+      <div>
+        <button class="purge-btn" title="Purge DB">🗑️</button>
+        <button class="settings-btn" title="Settings">⚙️</button>
+      </div>
     </div>
     <div class="tabs">
       <div class="tab" data-tab="editor">Editor</div>
@@ -69,7 +72,14 @@ export function initPanel() {
   function renderTab(tabName) {
     content.innerHTML = '';
     if (tabName === 'editor') renderEditor(content);
-    else if (tabName === 'chat') renderChat(content);
+    else if (tabName === 'chat') {
+      renderChat(content);
+      // Focus the chat input after rendering
+      setTimeout(() => {
+        const input = content.querySelector('#chat-input');
+        if (input) input.focus();
+      }, 0);
+    }
     else if (tabName === 'history') renderHistory(content);
   }
 
@@ -85,6 +95,7 @@ export function initPanel() {
 
   // Settings modal logic
   const settingsBtn = shadow.querySelector('.settings-btn');
+  const purgeBtn = shadow.querySelector('.purge-btn');
   const settingsModal = shadow.getElementById('settings-modal');
   settingsBtn.onclick = () => {
     const currentKey = getApiKey();
@@ -97,7 +108,7 @@ export function initPanel() {
             <input type="password" id="api-key-input" value="${currentKey}" placeholder="sk-..." autocomplete="off" />
           </label>
           <label>Model
-            <input type="text" id="model-input" value="${currentModel}" placeholder="gpt-4-turbo" />
+            <input type="text" id="model-input" value="${currentModel}" placeholder="gpt-4.1" />
           </label>
           <button id="save-settings">Save</button>
           <button id="close-settings" style="margin-left:8px">Cancel</button>
@@ -114,6 +125,22 @@ export function initPanel() {
     };
     shadow.getElementById('close-settings').onclick = () => {
       settingsModal.style.display = 'none';
+    };
+  };
+  purgeBtn.onclick = async () => {
+    if (!confirm('Purge all app data and restore to original state? This cannot be undone.')) return;
+    // Preserve OpenAI API key and model
+    const apiKey = localStorage.getItem('autoregret_openai_api_key');
+    const model = localStorage.getItem('autoregret_openai_model');
+    // Clear all localStorage
+    localStorage.clear();
+    // Restore API key and model
+    if (apiKey) localStorage.setItem('autoregret_openai_api_key', apiKey);
+    if (model) localStorage.setItem('autoregret_openai_model', model);
+    // Delete IndexedDB
+    const req = indexedDB.deleteDatabase('autoregret-files');
+    req.onsuccess = req.onerror = req.onblocked = () => {
+      location.reload();
     };
   };
   // TODO: Make panel draggable

@@ -2,7 +2,7 @@
 
 const API_KEY_STORAGE = 'autoregret_openai_api_key';
 const MODEL_STORAGE = 'autoregret_openai_model';
-const DEFAULT_MODEL = 'gpt-4-turbo';
+const DEFAULT_MODEL = 'gpt-4.1';
 
 export function setApiKey(key) {
   localStorage.setItem(API_KEY_STORAGE, key);

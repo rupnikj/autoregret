@@ -4,15 +4,16 @@ A self-modifying frontend app experiment powered by GPT-4 and a virtual file sys
 
 ## Quick Start
 
-1. Clone the repo or download the files.
-2. Open `index.html` in your browser (no backend required).
+1. **Run a local server** in the project directory (e.g. `python3 -m http.server` or `npx serve`).
+2. **Open your browser and go to** [http://localhost:8000](http://localhost:8000) (or the port your server uses).
 3. The floating panel UI will appear; the user app loads in the main area.
+4. **Set your OpenAI API key** using the settings (⚙️) button in the panel. The key is stored in your browser's local storage for convenience.
 
 ---
 
-- All code is client-side only.
-- App code and history are stored in IndexedDB.
-- Use the floating panel to chat, edit, and view diffs.
+- All code and app data are stored **entirely in your browser's local storage** (IndexedDB and localStorage).
+- No data is sent to any backend except OpenAI API calls you initiate.
+- Use the floating panel to chat, edit, and view history.
 
 ---
 

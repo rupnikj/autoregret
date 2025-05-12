@@ -43,7 +43,7 @@ This project is intentionally named **AutoRegret**, because… we all know how t
 | Editor           | [CodeMirror 6](https://codemirror.net/) |
 | Diffing          | `diff-match-patch` or `jsdiff` |
 | Storage          | `IndexedDB` via wrapper     |
-| LLM Interface    | OpenAI GPT-4-turbo API      |
+| LLM Interface    | OpenAI GPT-4.1 API      |
 | Code Execution   | `eval()` (then dynamic `import()` via blob) |
 | System UI        | Shadow DOM-based floating panel |
 | Testing Sandbox  | `try/catch` eval test       |
@@ -108,7 +108,7 @@ v
 	•	Combined into structured GPT prompt
 
 4. GPT Interface
-	•	Uses GPT-4-turbo via OpenAI API
+	•	Uses GPT-4.1 via OpenAI API
 	•	API key stored in localStorage
 	•	Receives prompt + file context
 	•	Responds with:
