@@ -101,38 +101,37 @@ v
 
 ### 3. Chat Interface + Prompt Compiler
 - User enters plain-English prompt
-	•	System injects:
-	•	Current file contents
-	•	Framework tag (e.g., vanilla, react)
-	•	Constraints (e.g., “Do not change framework”)
-	•	Combined into structured GPT prompt
+- System injects:
+- Current file contents
+- Framework tag (e.g., vanilla, react)
+- Constraints (e.g., “Do not change framework”)
+- Combined into structured GPT prompt
 
 ### 4. GPT Interface
-	•	Uses GPT-4.1 via OpenAI API
-	•	API key stored in localStorage
-	•	Receives prompt + file context
-	•	Responds with:
-	•	Preferred: Diff format
-	•	Fallback: Full file replacements
+- Uses GPT-4.1 via OpenAI API
+- API key stored in localStorage
+- Receives prompt + file context
+- Responds with:
+- Preferred: Diff format
+- Fallback: Full file replacements
 
 ### 5. Diff Engine
-	•	Uses jsdiff or similar to:
-	•	Show side-by-side preview
-	•	Apply changes to virtual FS
-	•	If errors occur, patch is discarded and user notified
+- Uses jsdiff or similar to:
+- Show side-by-side preview
+- Apply changes to virtual FS
+- If errors occur, patch is discarded and user notified
 
 ### 6. Patch Validator
-	•	Applies patch in memory
-	•	Runs test via try { eval(code) }
-	•	If no error: patch is saved, version is updated, and app is reloaded
-	•	If error: revert and alert via badge and overlay
+- Applies patch in memory
+- Runs test via try { eval(code) }
+- If no error: patch is saved, version is updated, and app is reloaded
+- If error: revert and alert via badge and overlay
 
 ### 7. App Loader
-	•	User app code stored in virtual FS
-	•	Combined and eval()’d into window.App namespace
+- User app code stored in virtual FS
+- Combined and eval()’d into window.App namespace
 - Reload on change calls App.init() or equivalent
 - Future: switch to import(blobURL) for cleaner modularity
-	
 	
 	
 /autoregret/
@@ -161,22 +160,21 @@ v
 
 
 ### 🧪 Workflow Example
-	1.	User prompt: “Make the header text red”
-	2.	Compiler:
-	•	Collects all files marked modifiable
-	•	Adds system instructions: “Do not change framework”, etc.
-	3.	GPT response:
-	•	A diff for App.js modifying a CSS class
-	4.	Diff Engine:
-	•	Applies patch in-memory
-	•	Validates via eval() test
-	5.	If valid:
-	•	Save new version to IndexedDB
-	•	Reload app from virtual FS
-	6.	If invalid:
-	•	Display warning badge + diff viewer
-	•	Discard patch and await next prompt
-
+- 1. User prompt: “Make the header text red”
+- 2. Compiler:
+  - Collects all files marked modifiable
+  - Adds system instructions: “Do not change framework”, etc.
+- 3. GPT response:
+  - A diff for App.js modifying a CSS class
+- 4. Diff Engine:
+  - Applies patch in-memory
+  - Validates via eval() test
+- 5. If valid:
+  - Save new version to IndexedDB
+  - Reload app from virtual FS
+- 6. If invalid:
+ - Display warning badge + diff viewer
+ - Discard patch and await next prompt
 
 
 
