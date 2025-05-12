@@ -24,6 +24,8 @@ export function initPanel() {
       .panel-header-title { color: #007aff; font-size: 16px; font-weight: 600; letter-spacing: 0.5px; }
       .settings-btn, .purge-btn { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 18px; margin-left: 8px; box-shadow: 0 1px 2px #e0e6ef; transition: background 0.2s; position: static; }
       .settings-btn:hover, .purge-btn:hover { background: #f0f4fa; }
+      .auto-apply-toggle { margin-left: 12px; display: inline-flex; align-items: center; font-size: 14px; user-select: none; }
+      .auto-apply-toggle input[type='checkbox'] { accent-color: #007aff; margin-right: 4px; }
       .tabs { display: flex; }
       .tab { flex: 1; padding: 8px; cursor: pointer; background: #eee; border-bottom: 2px solid transparent; text-align: center; }
       .tab.active { background: #fff; border-bottom: 2px solid #007aff; }
@@ -43,7 +45,10 @@ export function initPanel() {
     </style>
     <div class="panel-header">
       <span class="panel-header-title">AutoRegret</span>
-      <div>
+      <div style="display:flex; align-items:center;">
+        <label class="auto-apply-toggle" title="Automatically apply chat suggestions">
+          <input type="checkbox" id="auto-apply-toggle" checked /> Auto-Apply
+        </label>
         <button class="purge-btn" title="Purge DB">🗑️</button>
         <button class="settings-btn" title="Settings">⚙️</button>
       </div>
@@ -56,9 +61,20 @@ export function initPanel() {
     <div class="tab-content" id="tab-content"></div>
     <div id="settings-modal" style="display:none"></div>
   `;
+  const autoApplyToggle = shadow.getElementById('auto-apply-toggle');
+  let autoApply = true;
+  let currentTab = 'chat';
+
+  autoApplyToggle.onchange = () => {
+    autoApply = autoApplyToggle.checked;
+    // If currently on the chat tab, re-render it with the new autoApply value
+    if (currentTab === 'chat') {
+      renderTab('chat');
+    }
+  };
+
   const tabs = shadow.querySelectorAll('.tab');
   const content = shadow.getElementById('tab-content');
-  let currentTab = 'editor';
 
   function setActiveTab(tabName) {
     currentTab = tabName;
@@ -73,7 +89,7 @@ export function initPanel() {
     content.innerHTML = '';
     if (tabName === 'editor') renderEditor(content);
     else if (tabName === 'chat') {
-      renderChat(content);
+      renderChat(content, { autoApply });
       // Focus the chat input after rendering
       setTimeout(() => {
         const input = content.querySelector('#chat-input');
@@ -88,7 +104,7 @@ export function initPanel() {
       setActiveTab(tab.getAttribute('data-tab'));
     });
   });
-  setActiveTab('editor');
+  setActiveTab(currentTab);
 
   // Expose a global function for chat-to-diff workflow
   window.autoregretSendToDiff = function() {};

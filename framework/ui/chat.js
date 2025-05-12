@@ -10,7 +10,8 @@ function escapeHTML(str) {
   });
 }
 
-export function renderChat(container) {
+export function renderChat(container, opts) {
+  const autoApply = opts && typeof opts.autoApply !== 'undefined' ? opts.autoApply : true;
   container.innerHTML = `
     <div style="display:flex; flex-direction:column; height:100%">
       <div id="chat-messages" style="flex:1; overflow:auto; margin-bottom:8px; background:#f9f9f9; padding:8px; border-radius:6px; min-height:60px;"></div>
@@ -38,7 +39,7 @@ export function renderChat(container) {
             <b>User Prompt:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.userPrompt)}</pre>
             <b>Raw GPT Output:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.gptOutput)}</pre>
           </div>` : '';
-        return `<div style="margin-bottom:6px;"><b>GPT (file):</b><pre style='background:#eee; padding:6px; border-radius:4px; overflow:auto;'>${escapeHTML(msg.content)}</pre><div style='display:flex; gap:8px; margin-top:4px;'><button class='chat-lucky' data-idx='${idx}'>${isLucky ? 'Revert' : "I'm Feeling Lucky"}</button><button class='chat-toggle-diff' data-idx='${idx}'>${showDiff ? 'Hide Diff' : 'Show Diff'}</button>${msg.promptHistory ? `<button class='toggle-prompt-history' data-idx='${idx}'>${msg.showPromptHistory ? 'Hide' : 'Show'} Prompt Details</button>` : ''}</div><pre class='chat-inline-diff' style='margin-top:6px; background:#f9f9f9; padding:8px; border-radius:6px; overflow:auto; max-height:180px; font-family:monospace; font-size:13px; white-space:pre-wrap; border:1px solid #e0e6ef;'>${showDiff ? 'Loading diff...' : ''}</pre>${promptDetails}</div>`;
+        return `<div style="margin-bottom:6px;"><b>GPT (file):</b><pre style='background:#eee; padding:6px; border-radius:4px; overflow:auto;'>${escapeHTML(msg.content)}</pre><div style='display:flex; gap:8px; margin-top:4px;'><button class='chat-lucky' data-idx='${idx}'>${isLucky ? 'Revert' : "Apply"}</button><button class='chat-toggle-diff' data-idx='${idx}'>${showDiff ? 'Hide Diff' : 'Show Diff'}</button>${msg.promptHistory ? `<button class='toggle-prompt-history' data-idx='${idx}'>${msg.showPromptHistory ? 'Hide' : 'Show'} Prompt Details</button>` : ''}</div><pre class='chat-inline-diff' style='margin-top:6px; background:#f9f9f9; padding:8px; border-radius:6px; overflow:auto; max-height:180px; font-family:monospace; font-size:13px; white-space:pre-wrap; border:1px solid #e0e6ef;'>${showDiff ? 'Loading diff...' : ''}</pre>${promptDetails}</div>`;
       }
       if (msg.role === 'assistant' && msg.promptHistory) {
         // Non-file GPT output with prompt history
@@ -56,14 +57,13 @@ export function renderChat(container) {
       return `<div style="margin-bottom:6px;"><b>${msg.role === 'user' ? 'You' : 'GPT'}:</b> ${escapeHTML(msg.content)}</div>`;
     }).join('');
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    // Wire up "I'm Feeling Lucky"/"Revert" buttons
+    // Wire up "Apply"/"Revert" buttons
     messagesDiv.querySelectorAll('.chat-lucky').forEach((btn, i) => {
       btn.onclick = async () => {
         const idx = parseInt(btn.getAttribute('data-idx'), 10);
         const msg = chatHistory[idx];
         if (!msg) return;
         if (!msg.luckyState) {
-          // I'm Feeling Lucky: apply this suggestion
           const fileName = msg.fileName;
           const prevFile = await loadFile(fileName);
           if (!prevFile) {
@@ -156,7 +156,27 @@ export function renderChat(container) {
       if (match) {
         const fileName = match[1].trim();
         const fileContent = match[2];
-        chatHistory.push({ role: 'assistant', content: fileContent, fileName, promptHistory });
+        const msgObj = { role: 'assistant', content: fileContent, fileName, promptHistory };
+        chatHistory.push(msgObj);
+        // Auto-apply if enabled
+        if (autoApply) {
+          setTimeout(async () => {
+            // Only auto-apply if not already lucky
+            if (!msgObj.luckyState) {
+              const prevFile = await loadFile(fileName);
+              if (prevFile) {
+                const prevContent = prevFile.content;
+                await saveFile({ ...prevFile, content: fileContent });
+                const history = await listHistory(fileName);
+                const luckyHistoryId = history.length ? history[0].id : null;
+                msgObj.luckyState = { prevContent, luckyHistoryId };
+                if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
+                renderMessages();
+                status.textContent = 'Lucky patch auto-applied!';
+              }
+            }
+          }, 0);
+        }
       } else {
         chatHistory.push({ role: 'assistant', content: response, promptHistory });
       }
