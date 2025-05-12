@@ -48,10 +48,10 @@ This project is intentionally named **AutoRegret**, because… we all know how t
 | System UI        | Shadow DOM-based floating panel |
 | Testing Sandbox  | `try/catch` eval test       |
 
----
 
 ## 🧭 High-Level Architecture
 
+```
 +––––––––––––––+
 |     AutoRegret Framework  |
 +––––––––––––––+
@@ -71,8 +71,7 @@ v
 |  - Executed via eval()    |
 |  - Reloaded on patch      |
 +––––––––––––––+
-
----
+```
 
 ## 🧩 Main Components
 
@@ -133,7 +132,7 @@ v
 - Reload on change calls App.init() or equivalent
 - Future: switch to import(blobURL) for cleaner modularity
 	
-	
+```
 /autoregret/
 ├── index.html
 ├── main.js                   # Entry point: initializes framework + loads user app
@@ -157,22 +156,22 @@ v
 ├── styles/
 │   └── ui.css
 └── README.md
-
+```
 
 ### 🧪 Workflow Example
-- 1. User prompt: “Make the header text red”
-- 2. Compiler:
+- User prompt: “Make the header text red”
+- Compiler:
   - Collects all files marked modifiable
   - Adds system instructions: “Do not change framework”, etc.
-- 3. GPT response:
+- GPT response:
   - A diff for App.js modifying a CSS class
-- 4. Diff Engine:
+- Diff Engine:
   - Applies patch in-memory
   - Validates via eval() test
-- 5. If valid:
+- If valid:
   - Save new version to IndexedDB
   - Reload app from virtual FS
-- 6. If invalid:
+- If invalid:
  - Display warning badge + diff viewer
  - Discard patch and await next prompt
 
