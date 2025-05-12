@@ -96,18 +96,18 @@ v
   "framework": "vanilla",
   "lastModified": 1681234567890
 }
+```
+- All code edits read/write from this structure
 
-	•	All code edits read/write from this structure
-
-3. Chat Interface + Prompt Compiler
-	•	User enters plain-English prompt
+### 3. Chat Interface + Prompt Compiler
+- User enters plain-English prompt
 	•	System injects:
 	•	Current file contents
 	•	Framework tag (e.g., vanilla, react)
 	•	Constraints (e.g., “Do not change framework”)
 	•	Combined into structured GPT prompt
 
-4. GPT Interface
+### 4. GPT Interface
 	•	Uses GPT-4.1 via OpenAI API
 	•	API key stored in localStorage
 	•	Receives prompt + file context
@@ -115,23 +115,23 @@ v
 	•	Preferred: Diff format
 	•	Fallback: Full file replacements
 
-5. Diff Engine
+### 5. Diff Engine
 	•	Uses jsdiff or similar to:
 	•	Show side-by-side preview
 	•	Apply changes to virtual FS
 	•	If errors occur, patch is discarded and user notified
 
-6. Patch Validator
+### 6. Patch Validator
 	•	Applies patch in memory
 	•	Runs test via try { eval(code) }
 	•	If no error: patch is saved, version is updated, and app is reloaded
 	•	If error: revert and alert via badge and overlay
 
-7. App Loader
+### 7. App Loader
 	•	User app code stored in virtual FS
 	•	Combined and eval()’d into window.App namespace
-	•	Reload on change calls App.init() or equivalent
-	•	Future: switch to import(blobURL) for cleaner modularity
+- Reload on change calls App.init() or equivalent
+- Future: switch to import(blobURL) for cleaner modularity
 	
 	
 	
@@ -160,7 +160,7 @@ v
 └── README.md
 
 
-🧪 Workflow Example
+### 🧪 Workflow Example
 	1.	User prompt: “Make the header text red”
 	2.	Compiler:
 	•	Collects all files marked modifiable
@@ -180,7 +180,7 @@ v
 
 
 
-🧰 Default Constraints Injected into GPT Prompt
+### 🧰 Default Constraints Injected into GPT Prompt
 - This is a JavaScript frontend app using [vanilla | React | Vue].
 - Do not change the framework.
 - Only modify files marked as `modifiable`.
@@ -189,10 +189,9 @@ v
 - Assume the user app starts with `App.init()` as its entry point.
 
 
-🔚 Conclusion
+### 🔚 Conclusion
 
-AutoRegret is a bold experiment in letting your app write its own future — with your guidance and GPT’s chaotic brilliance. It’s an isolated, frontend-only playground for building a natural-language-powered live development environment, backed by a virtual file system, GPT-driven patching, and versioned self-modification.
+AutoRegret is an experiment in letting your app write its own future using chat gpt. It’s an isolated, frontend-only playground for building a natural-language-powered live development environment, backed by a virtual file system, GPT-driven patching, and versioned self-modification.
 
-And yes — you will probably regret it at some point. But that’s part of the fun.
 
 
