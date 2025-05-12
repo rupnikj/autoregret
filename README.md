@@ -4,11 +4,15 @@ A self-modifying frontend app experiment powered by GPT-4 and a virtual file sys
 
 ## Quick Start
 
-1. **Run a local server** in the project directory (e.g. `python3 -m http.server` or `npx serve`).
-2. **Open your browser and go to** [http://localhost:8000](http://localhost:8000) (or the port your server uses).
-3. The floating panel UI will appear; the user app loads in the main area.
-4. **Set your OpenAI API key** using the settings (⚙️) button in the panel. The key is stored in your browser's local storage for convenience.
-5. **Navigate to the Chat tab, type your wish for what the app will self modify to.**
+1. **Clone this repository and cd into the directory:**
+   ```sh
+   git clone https://github.com/rupnikj/autoregret.git && cd autoregret
+   ```
+2. **Run a local server** in the project directory (e.g. `python3 -m http.server` or `npx serve`).
+3. **Open your browser and go to** [http://localhost:8000](http://localhost:8000) (or the port your server uses).
+4. The floating panel UI will appear; the user app loads in the main area.
+5. **Set your OpenAI API key** using the settings (⚙️) button in the panel. The key is stored in your browser's local storage and not sent anywhere.
+6. **Navigate to the Chat tab and type your wish for what the app should self modify to (examples: `blue background`, `add a midi piano`, `make a fish that floats`, `make it snow`).**
 
 ---
 
