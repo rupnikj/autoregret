@@ -138,6 +138,8 @@ export function initPanel() {
       setApiKey(key);
       setModel(model);
       settingsModal.style.display = 'none';
+      // Re-render chat tab if it's active
+      if (currentTab === 'chat') renderTab('chat');
     };
     shadow.getElementById('close-settings').onclick = () => {
       settingsModal.style.display = 'none';

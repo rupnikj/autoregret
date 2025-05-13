@@ -1,4 +1,4 @@
-import { sendPrompt } from '../core/gpt.js';
+import { sendPrompt, getApiKey } from '../core/gpt.js';
 import { listFiles, loadFile, saveFile, listHistory, deleteHistoryEntry } from '../core/storage.js';
 import { previewDiff } from '../core/diffEngine.js';
 
@@ -14,6 +14,7 @@ export function renderChat(container, opts) {
   const autoApply = opts && typeof opts.autoApply !== 'undefined' ? opts.autoApply : true;
   container.innerHTML = `
     <div style="display:flex; flex-direction:column; height:100%">
+      <div id="chat-apikey-warning" style="display:none; color:#b31d28; background:#fff3cd; border:1px solid #ffeeba; border-radius:4px; padding:8px; margin-bottom:8px; font-size:14px;"></div>
       <div id="chat-messages" style="flex:1; overflow:auto; margin-bottom:8px; background:#f9f9f9; padding:8px; border-radius:6px; min-height:60px;"></div>
       <div style="display:flex; gap:8px; align-items:flex-end;">
         <textarea id="chat-input" rows="2" style="flex:1; resize:vertical; margin-bottom:4px;" placeholder="Ask AutoRegret..."></textarea>
@@ -22,10 +23,24 @@ export function renderChat(container, opts) {
       <div id="chat-status" style="margin-top:4px; color:#888; font-size:12px;"></div>
     </div>
   `;
+  const warningDiv = container.querySelector('#chat-apikey-warning');
   const messagesDiv = container.querySelector('#chat-messages');
   const input = container.querySelector('#chat-input');
   const sendBtn = container.querySelector('#chat-send');
   const status = container.querySelector('#chat-status');
+
+  // Show warning if API key is not set
+  const apiKey = getApiKey && getApiKey();
+  if (!apiKey) {
+    warningDiv.innerHTML = '⚠️ <b>OpenAI API key not set.</b> Go to the <b>Settings</b> tab (⚙️) to enter your key.';
+    warningDiv.style.display = '';
+    input.disabled = true;
+    sendBtn.disabled = true;
+  } else {
+    warningDiv.style.display = 'none';
+    input.disabled = false;
+    sendBtn.disabled = false;
+  }
 
   function renderMessages() {
     messagesDiv.innerHTML = chatHistory.map((msg, idx) => {
@@ -138,6 +153,7 @@ export function renderChat(container, opts) {
     renderMessages();
     input.value = '';
     status.textContent = 'Thinking...';
+    status.style.color = '#888';
     try {
       // Gather file context
       const files = await listFiles();
@@ -182,8 +198,14 @@ export function renderChat(container, opts) {
       }
       renderMessages();
       status.textContent = '';
+      status.style.color = '#888';
     } catch (e) {
       status.textContent = 'Error: ' + e.message;
+      if (/401|unauthorized|invalid api key|invalid authentication/i.test(e.message)) {
+        status.style.color = '#b31d28'; // red
+      } else {
+        status.style.color = '#888'; // default
+      }
     }
   };
 
