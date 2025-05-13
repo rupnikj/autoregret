@@ -16,9 +16,15 @@ export function renderChat(container, opts) {
     <div style="display:flex; flex-direction:column; height:100%">
       <div id="chat-apikey-warning" style="display:none; color:#b31d28; background:#fff3cd; border:1px solid #ffeeba; border-radius:4px; padding:8px; margin-bottom:8px; font-size:14px;"></div>
       <div id="chat-messages" style="flex:1; overflow:auto; margin-bottom:8px; background:#f9f9f9; padding:8px; border-radius:6px; min-height:60px;"></div>
-      <div style="display:flex; gap:8px; align-items:flex-end;">
-        <textarea id="chat-input" rows="2" style="flex:1; resize:vertical; margin-bottom:4px;" placeholder="Ask AutoRegret..."></textarea>
-        <button id="chat-send">Send</button>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <textarea id="chat-input"
+          rows="1"
+          style="flex:1; height:48px; box-sizing:border-box; border-radius:8px; padding:12px 14px; font-size:14px; border:1px solid #bbb; resize:none;"
+          placeholder="Ask AutoRegret..."></textarea>
+        <button id="chat-send"
+          style="height:48px; min-width:72px; box-sizing:border-box; border-radius:8px; font-size:14px; border:1px solid #bbb; background:#f7faff; cursor:pointer; transition:background 0.2s;">
+          Send
+        </button>
       </div>
       <div id="chat-status" style="margin-top:4px; color:#888; font-size:12px;"></div>
     </div>

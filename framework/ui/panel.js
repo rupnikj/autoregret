@@ -42,28 +42,63 @@ export function initPanel() {
       .settings-content label { display: block; margin-top: 12px; }
       .settings-content input { width: 100%; margin-top: 4px; padding: 6px; }
       .settings-content button { margin-top: 16px; }
+      .minimized {
+        height: 48px !important;
+        min-height: 0 !important;
+        max-height: 48px !important;
+        width: 140px !important;
+        min-width: 0 !important;
+        max-width: 140px !important;
+        overflow: hidden !important;
+        transition: height 0.2s, width 0.2s, border-radius 0.2s;
+        border-radius: 10px !important;
+      }
+      .minimized .tabs,
+      .minimized .tab-content,
+      .minimized #settings-modal {
+        display: none !important;
+      }
+      .minimized .panel-header {
+        justify-content: center !important;
+        overflow: visible !important;
+      }
+      .minimized .panel-header-title {
+        width: 100%; text-align: center; padding: 0 12px; overflow: visible;
+      }
+      .minimized .panel-header > div,
+      .minimized .auto-apply-toggle,
+      .minimized .settings-btn,
+      .minimized .purge-btn {
+        display: none !important;
+      }
     </style>
-    <div class="panel-header">
-      <span class="panel-header-title">AutoRegret</span>
-      <div style="display:flex; align-items:center;">
-        <label class="auto-apply-toggle" title="Automatically apply chat suggestions">
-          <input type="checkbox" id="auto-apply-toggle" checked /> Auto-Apply
-        </label>
-        <button class="purge-btn" title="Purge DB">🗑️</button>
-        <button class="settings-btn" title="Settings">⚙️</button>
+    <div id="panel-wrapper">
+      <div class="panel-header">
+        <span class="panel-header-title" style="cursor:pointer; display:flex; align-items:center; gap:6px;" title="Minimize/Expand">
+          AutoRegret
+          <span id="minimize-chevron" style="font-size:18px; transition: transform 0.2s;">▼</span>
+        </span>
+        <div style="display:flex; align-items:center;">
+          <label class="auto-apply-toggle" title="Automatically apply chat suggestions">
+            <input type="checkbox" id="auto-apply-toggle" checked /> Auto-Apply
+          </label>
+          <button class="purge-btn" title="Purge DB">🗑️</button>
+          <button class="settings-btn" title="Settings">⚙️</button>
+        </div>
       </div>
+      <div class="tabs">
+        <div class="tab" data-tab="editor">Editor</div>
+        <div class="tab" data-tab="chat">Chat</div>
+        <div class="tab" data-tab="history">History</div>
+      </div>
+      <div class="tab-content" id="tab-content"></div>
+      <div id="settings-modal" style="display:none"></div>
     </div>
-    <div class="tabs">
-      <div class="tab" data-tab="editor">Editor</div>
-      <div class="tab" data-tab="chat">Chat</div>
-      <div class="tab" data-tab="history">History</div>
-    </div>
-    <div class="tab-content" id="tab-content"></div>
-    <div id="settings-modal" style="display:none"></div>
   `;
   const autoApplyToggle = shadow.getElementById('auto-apply-toggle');
   let autoApply = true;
   let currentTab = 'chat';
+  let minimized = false;
 
   autoApplyToggle.onchange = () => {
     autoApply = autoApplyToggle.checked;
@@ -161,5 +196,27 @@ export function initPanel() {
       location.reload();
     };
   };
+
+  // Minimize/expand logic
+  const panelWrapper = shadow.getElementById('panel-wrapper');
+  const panelHeaderTitle = shadow.querySelector('.panel-header-title');
+  const chevron = shadow.getElementById('minimize-chevron');
+  panelHeaderTitle.onclick = () => {
+    minimized = !minimized;
+    if (minimized) {
+      host.style.height = '48px';
+      host.style.width = '140px';
+      host.style.borderRadius = '10px';
+      panelWrapper.classList.add('minimized');
+      chevron.textContent = '▲';
+    } else {
+      host.style.height = '700px';
+      host.style.width = '400px';
+      host.style.borderRadius = '10px 10px 10px 10px';
+      panelWrapper.classList.remove('minimized');
+      chevron.textContent = '▼';
+    }
+  };
+
   // TODO: Make panel draggable
 } 
