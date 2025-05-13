@@ -82,6 +82,7 @@ export function initPanel() {
           <label class="auto-apply-toggle" title="Automatically apply chat suggestions">
             <input type="checkbox" id="auto-apply-toggle" checked /> Auto-Apply
           </label>
+          <button class="save-btn" title="Download as HTML" style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:18px; margin-left:8px; box-shadow:0 1px 2px #e0e6ef; transition:background 0.2s; position: static;">💾</button>
           <button class="purge-btn" title="Purge DB">🗑️</button>
           <button class="settings-btn" title="Settings">⚙️</button>
         </div>
@@ -96,6 +97,7 @@ export function initPanel() {
     </div>
   `;
   const autoApplyToggle = shadow.getElementById('auto-apply-toggle');
+  const saveBtn = shadow.querySelector('.save-btn');
   let autoApply = true;
   let currentTab = 'chat';
   let minimized = false;
@@ -238,6 +240,67 @@ export function initPanel() {
       host.style.borderRadius = '10px 10px 10px 10px';
       panelWrapper.classList.remove('minimized');
       chevron.textContent = '▼';
+    }
+  };
+
+  saveBtn.onclick = async () => {
+    saveBtn.disabled = true;
+    saveBtn.style.opacity = '0.6';
+    try {
+      // Dynamically import listFiles
+      const { listFiles } = await import('../core/storage.js');
+      const files = await listFiles();
+      const modFiles = files.filter(f => f.modifiable);
+      // Sort .js files first, then .css, then .json/other
+      const jsFiles = modFiles.filter(f => f.name.endsWith('.js'));
+      const cssFiles = modFiles.filter(f => f.name.endsWith('.css'));
+      const jsonFiles = modFiles.filter(f => f.name.endsWith('.json'));
+      const otherFiles = modFiles.filter(f => !f.name.endsWith('.js') && !f.name.endsWith('.css') && !f.name.endsWith('.json'));
+      // Build HTML
+      let html = `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width,initial-scale=1">\n  <title>AutoRegret Bundle</title>\n`;
+      // Inline CSS
+      for (const file of cssFiles) {
+        html += `  <style>\n/* File: ${file.name} */\n${file.content}\n</style>\n`;
+      }
+      html += '</head>\n<body>\n  <div id="autoregret-root"></div>\n';
+      // Inline JSON as JS variables
+      for (const file of jsonFiles) {
+        const varName = file.name.replace(/\W+/g, '_').replace(/^_+|_+$/g, '');
+        html += `<script>window['${varName}'] = ${file.content};</script>\n`;
+      }
+      // Inline other files as comments
+      for (const file of otherFiles) {
+        html += `<!-- File: ${file.name} (not inlined) -->\n`;
+      }
+      // Inline JS files
+      for (const file of jsFiles) {
+        // Remove export statements for browser compatibility
+        let code = file.content.replace(/export\s+(const|let|var|function|class)\s+/g, '$1 ');
+        if (file.name === 'App.js') {
+          code = code.replace(/\b(const|let|var)\s+App\s*=/, 'window.App =');
+        }
+        html += `<script>\n// File: ${file.name}\n${code}\n</script>\n`;
+      }
+      // Auto-run App.init()
+      html += `<script>if (window.App && typeof window.App.init === 'function') window.App.init();</script>\n`;
+      html += '</body>\n</html>';
+      // Download
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'autoregret-bundle.html';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    } catch (e) {
+      alert('Failed to bundle and download: ' + e.message);
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.style.opacity = '';
     }
   };
 
