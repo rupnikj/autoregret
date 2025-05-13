@@ -3,6 +3,10 @@ import { listFiles } from './storage.js';
 
 export async function loadUserApp() {
   try {
+    // --- Cleanup before loading new app code ---
+    if (window.App && typeof window.App.cleanup === 'function') {
+      try { window.App.cleanup(); } catch (e) { console.warn('Cleanup error:', e); }
+    }
     const files = await listFiles();
     // Load all .js files and concatenate their contents
     const jsFiles = files.filter(f => f.name.endsWith('.js'));
