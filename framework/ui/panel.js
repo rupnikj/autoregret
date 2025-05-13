@@ -24,7 +24,7 @@ export function initPanel() {
       .panel-header-title { color: #007aff; font-size: 16px; font-weight: 600; letter-spacing: 0.5px; }
       .settings-btn, .purge-btn { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 18px; margin-left: 8px; box-shadow: 0 1px 2px #e0e6ef; transition: background 0.2s; position: static; }
       .settings-btn:hover, .purge-btn:hover { background: #f0f4fa; }
-      .auto-apply-toggle { margin-left: 12px; display: inline-flex; align-items: center; font-size: 14px; user-select: none; }
+      .auto-apply-toggle { margin-left: 14px; display: inline-flex; align-items: center; font-size: 14px; user-select: none; }
       .auto-apply-toggle input[type='checkbox'] { accent-color: #007aff; margin-right: 4px; }
       .tabs { display: flex; }
       .tab { flex: 1; padding: 8px; cursor: pointer; background: #eee; border-bottom: 2px solid transparent; text-align: center; }
@@ -79,7 +79,7 @@ export function initPanel() {
           <span id="minimize-chevron" style="font-size:18px; transition: transform 0.2s;">▼</span>
         </span>
         <div style="display:flex; align-items:center;">
-          <label class="auto-apply-toggle" title="Automatically apply chat suggestions">
+          <label class="auto-apply-toggle" title="Automatically apply chat suggestions" style="white-space:nowrap;">
             <input type="checkbox" id="auto-apply-toggle" checked /> Auto-Apply
           </label>
           <button class="save-btn" title="Download as HTML" style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:18px; margin-left:8px; box-shadow:0 1px 2px #e0e6ef; transition:background 0.2s; position: static;">💾</button>
