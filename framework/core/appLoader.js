@@ -16,24 +16,6 @@ export async function loadUserApp() {
       combined += `\n// ---- ${file.name} ----\n` + code + '\n';
     }
     console.log('[AutoRegret] Combined user app code:', combined);
-    // Monkey-patch IndexedDB to protect autoregret-files from user code
-    (function protectAutoRegretDB() {
-      const RESERVED_DB = 'autoregret-files';
-      const origOpen = indexedDB.open.bind(indexedDB);
-      const origDelete = indexedDB.deleteDatabase.bind(indexedDB);
-      indexedDB.open = function(name, ...args) {
-        if (name === RESERVED_DB) {
-          throw new Error('Access to reserved database name is not allowed.');
-        }
-        return origOpen(name, ...args);
-      };
-      indexedDB.deleteDatabase = function(name) {
-        if (name === RESERVED_DB) {
-          throw new Error('Deleting reserved database is not allowed.');
-        }
-        return origDelete(name);
-      };
-    })();
     // Evaluate in global scope
     // eslint-disable-next-line no-eval
     eval(combined);
