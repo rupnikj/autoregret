@@ -31,9 +31,9 @@ export async function initStorage() {
 async function seedInitialFiles() {
   // Load initial files from /app/ directory
   const initialFiles = [
-    { name: 'App.js', path: '/app/App.js', modifiable: true, framework: 'vanilla' },
-    { name: 'utils.js', path: '/app/utils.js', modifiable: true, framework: 'vanilla' },
-    { name: 'config.json', path: '/app/config.json', modifiable: true, framework: 'vanilla' }
+    { name: 'App.js', path: 'app/App.js', modifiable: true, framework: 'vanilla' },
+    { name: 'utils.js', path: 'app/utils.js', modifiable: true, framework: 'vanilla' },
+    { name: 'config.json', path: 'app/config.json', modifiable: true, framework: 'vanilla' }
   ];
   for (const file of initialFiles) {
     try {
