@@ -10,6 +10,17 @@ function escapeHTML(str) {
   });
 }
 
+// Helper for record/stop icon
+function MicIcon({ recording }) {
+  if (recording) {
+    // Stop icon (red square)
+    return `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="6" width="16" height="16" rx="4" fill="#b31d28"/></svg>`;
+  } else {
+    // Record icon (red circle)
+    return `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="14" cy="14" r="8" fill="#b31d28"/></svg>`;
+  }
+}
+
 export function renderChat(container, opts) {
   const autoApply = opts && typeof opts.autoApply !== 'undefined' ? opts.autoApply : true;
   container.innerHTML = `
@@ -26,14 +37,14 @@ export function renderChat(container, opts) {
           Send
         </button>
       </div>
-      <div id="chat-status" style="margin-top:4px; color:#888; font-size:12px;"></div>
+      <div id="chat-placeholder" style="margin-top:4px; color:#aaa; font-size:13px;">Type or record what you want this website to self-modify.</div>
     </div>
   `;
   const warningDiv = container.querySelector('#chat-apikey-warning');
   const messagesDiv = container.querySelector('#chat-messages');
   const input = container.querySelector('#chat-input');
   const sendBtn = container.querySelector('#chat-send');
-  const status = container.querySelector('#chat-status');
+  const chatPlaceholder = container.querySelector('#chat-placeholder');
 
   // Show warning if API key is not set
   const apiKey = getApiKey && getApiKey();
@@ -46,6 +57,97 @@ export function renderChat(container, opts) {
     warningDiv.style.display = 'none';
     input.disabled = false;
     sendBtn.disabled = false;
+  }
+
+  // Add mic button to the UI
+  const micBtn = document.createElement('button');
+  micBtn.id = 'chat-mic';
+  micBtn.style.height = '48px';
+  micBtn.style.width = '48px';
+  micBtn.style.border = 'none';
+  micBtn.style.background = 'transparent';
+  micBtn.style.cursor = 'pointer';
+  micBtn.style.display = 'flex';
+  micBtn.style.alignItems = 'center';
+  micBtn.style.justifyContent = 'center';
+  micBtn.innerHTML = MicIcon({ recording: false });
+  sendBtn.parentNode.insertBefore(micBtn, sendBtn);
+
+  // --- Voice recording state ---
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let isRecording = false;
+
+  // --- Mic button handlers ---
+  micBtn.onmousedown = startRecording;
+  micBtn.onmouseup = stopRecording;
+  micBtn.ontouchstart = startRecording;
+  micBtn.ontouchend = stopRecording;
+
+  function updateMicIcon() {
+    micBtn.innerHTML = MicIcon({ recording: isRecording });
+  }
+
+  // --- Voice recording logic ---
+  async function startRecording() {
+    if (isRecording) return;
+    if (!navigator.mediaDevices) {
+      chatPlaceholder.textContent = 'Microphone not supported in this browser.';
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new window.MediaRecorder(stream);
+      audioChunks = [];
+      mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+      mediaRecorder.onstop = handleRecordingStop;
+      mediaRecorder.start();
+      isRecording = true;
+      updateMicIcon();
+      chatPlaceholder.textContent = 'Recording...';
+    } catch (err) {
+      chatPlaceholder.textContent = 'Microphone access denied.';
+    }
+  }
+
+  function stopRecording() {
+    if (!isRecording || !mediaRecorder) return;
+    mediaRecorder.stop();
+    isRecording = false;
+    updateMicIcon();
+    chatPlaceholder.textContent = 'Transcribing...';
+  }
+
+  async function handleRecordingStop() {
+    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+    try {
+      const apiKey = getApiKey && getApiKey();
+      if (!apiKey) {
+        chatPlaceholder.textContent = 'OpenAI API key not set.';
+        return;
+      }
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'audio.webm');
+      formData.append('model', 'gpt-4o-transcribe');
+      // You can add language or prompt fields if desired
+      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+        body: formData
+      });
+      const data = await response.json();
+      if (data.text) {
+        input.value = data.text;
+        chatPlaceholder.textContent = 'Voice transcribed!';
+        input.focus();
+      } else {
+        chatPlaceholder.textContent = 'Transcription failed.';
+      }
+    } catch (err) {
+      chatPlaceholder.textContent = 'Error: ' + err.message;
+    }
   }
 
   function renderMessages() {
@@ -88,7 +190,7 @@ export function renderChat(container, opts) {
           const fileName = msg.fileName;
           const prevFile = await loadFile(fileName);
           if (!prevFile) {
-            status.textContent = 'File not found.';
+            chatPlaceholder.textContent = 'File not found.';
             return;
           }
           const prevContent = prevFile.content;
@@ -98,14 +200,14 @@ export function renderChat(container, opts) {
           msg.luckyState = { prevContent, luckyHistoryId };
           if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
           renderMessages();
-          status.textContent = 'Lucky patch applied!';
+          chatPlaceholder.textContent = 'Lucky patch applied!';
         } else {
           // Revert: restore previous content and delete lucky version from history
           const { prevContent, luckyHistoryId } = msg.luckyState;
           const fileName = msg.fileName;
           const file = await loadFile(fileName);
           if (!file) {
-            status.textContent = 'File not found.';
+            chatPlaceholder.textContent = 'File not found.';
             return;
           }
           await saveFile({ ...file, content: prevContent });
@@ -113,7 +215,7 @@ export function renderChat(container, opts) {
           if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
           delete msg.luckyState;
           renderMessages();
-          status.textContent = 'Reverted!';
+          chatPlaceholder.textContent = 'Reverted!';
         }
       };
     });
@@ -158,8 +260,7 @@ export function renderChat(container, opts) {
     chatHistory.push({ role: 'user', content: text });
     renderMessages();
     input.value = '';
-    status.textContent = 'Thinking...';
-    status.style.color = '#888';
+    chatPlaceholder.textContent = 'Thinking...';
     try {
       // Gather file context
       const files = await listFiles();
@@ -194,7 +295,7 @@ export function renderChat(container, opts) {
                 msgObj.luckyState = { prevContent, luckyHistoryId };
                 if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
                 renderMessages();
-                status.textContent = 'Lucky patch auto-applied!';
+                chatPlaceholder.textContent = 'Lucky patch auto-applied!';
               }
             }
           }, 0);
@@ -203,14 +304,13 @@ export function renderChat(container, opts) {
         chatHistory.push({ role: 'assistant', content: response, promptHistory });
       }
       renderMessages();
-      status.textContent = '';
-      status.style.color = '#888';
+      chatPlaceholder.textContent = 'Type or record what you want this website to self-modify.';
     } catch (e) {
-      status.textContent = 'Error: ' + e.message;
+      chatPlaceholder.textContent = 'Error: ' + e.message;
       if (/401|unauthorized|invalid api key|invalid authentication/i.test(e.message)) {
-        status.style.color = '#b31d28'; // red
+        chatPlaceholder.style.color = '#b31d28'; // red
       } else {
-        status.style.color = '#888'; // default
+        chatPlaceholder.style.color = '#888'; // default
       }
     }
   };
