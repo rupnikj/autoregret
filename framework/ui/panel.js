@@ -190,11 +190,34 @@ export function initPanel() {
     // Restore API key and model
     if (apiKey) localStorage.setItem('autoregret_openai_api_key', apiKey);
     if (model) localStorage.setItem('autoregret_openai_model', model);
-    // Delete IndexedDB
-    const req = indexedDB.deleteDatabase('autoregret-files');
-    req.onsuccess = req.onerror = req.onblocked = () => {
-      location.reload();
-    };
+    // Delete ALL IndexedDB databases (not just autoregret-files)
+    if (indexedDB.databases) {
+      // Modern browsers: enumerate and delete all
+      try {
+        const dbs = await indexedDB.databases();
+        let pending = dbs.length;
+        if (pending === 0) location.reload();
+        dbs.forEach(db => {
+          const req = indexedDB.deleteDatabase(db.name);
+          req.onsuccess = req.onerror = req.onblocked = () => {
+            pending--;
+            if (pending === 0) location.reload();
+          };
+        });
+      } catch (e) {
+        // Fallback: just delete autoregret-files
+        const req = indexedDB.deleteDatabase('autoregret-files');
+        req.onsuccess = req.onerror = req.onblocked = () => {
+          location.reload();
+        };
+      }
+    } else {
+      // Older browsers: just delete autoregret-files
+      const req = indexedDB.deleteDatabase('autoregret-files');
+      req.onsuccess = req.onerror = req.onblocked = () => {
+        location.reload();
+      };
+    }
   };
 
   // Minimize/expand logic
