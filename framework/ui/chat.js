@@ -3,6 +3,7 @@ import { listFiles, loadFile, saveFile, listHistory, deleteHistoryEntry } from '
 import { previewDiff } from '../core/diffEngine.js';
 
 let chatHistory = [];
+let userWishes = [];
 
 function escapeHTML(str) {
   return str.replace(/[&<>"']/g, function (c) {
@@ -258,6 +259,7 @@ export function renderChat(container, opts) {
     const text = input.value.trim();
     if (!text) return;
     chatHistory.push({ role: 'user', content: text });
+    userWishes.push(text);
     renderMessages();
     input.value = '';
     chatPlaceholder.textContent = 'Thinking...';
@@ -266,8 +268,10 @@ export function renderChat(container, opts) {
       const files = await listFiles();
       const modFiles = files.filter(f => f.modifiable);
       const context = modFiles.map(f => `// File: ${f.name}\n${f.content}`).join('\n\n');
-      const systemPrompt = `You are AutoRegret, an AI code assistant for a live-editable JavaScript frontend app.\n\n- The app consists of the following files (see below), each shown as: // File: <name>\n<content>\n- The app is pure client-side, using only vanilla JavaScript (NO frameworks, NO Node.js, NO backend).\n- The app uses a virtual file system; files are loaded and executed via eval() in the browser.\n- The entry point is always App.init().\n- NEVER use ES module syntax (do NOT use 'import' or 'export' statements).\n- Only modify files marked as 'modifiable'.\n- NEVER invent new files, frameworks, or change the app structure.\n- When the user asks for a change, respond ONLY with the full, updated content of the relevant file.\n- Respond in the format:\n// File: <filename>\n<full file content>\n- The VERY FIRST LINE of your response MUST be // File: <filename> (no commentary, no blank lines before).\n- Only ONE file per response.\n- Do NOT return diffs.\n- The file should be minimal, clean, and correct.\n- If the user request is ambiguous, ask for clarification.\n- Never change files that are not marked as modifiable.\n- Do NOT include explanations, commentary, or extra text—ONLY the file content.\n- IMPORTANT: If you add any persistent state (such as setInterval, setTimeout, or event listeners), you MUST also add an App.cleanup() function that clears all such state. When code is updated, App.cleanup() will be called before reloading. Always ensure that intervals, timeouts, and event listeners are properly removed in App.cleanup().`;
-      const userPrompt = `Here are all modifiable files in the app:\n\n${context}\n\nUser request: ${text}\n\nINSTRUCTIONS: Respond ONLY with the full, updated content of the relevant file. Do not include explanations or commentary. Respond in the format:\n// File: <filename>\n<full file content>\nThe very first line of your response MUST be // File: <filename>. Only one file per response.`;
+      // Add wish history to the prompt
+      const wishHistory = userWishes.map((wish, i) => `${i + 1}. ${wish}`).join('\n');
+      const systemPrompt = `You are AutoRegret, an AI code assistant for a live-editable JavaScript frontend app.\n\n- The app consists of the following files (see below), each shown as: // File: <name>\n<content>\n- The app is pure client-side, using only vanilla JavaScript (NO frameworks, NO Node.js, NO backend).\n- The app uses a virtual file system; files are loaded and executed via eval() in the browser.\n- The entry point is always App.init().\n- NEVER use ES module syntax (do NOT use 'import' or 'export' statements).\n- Only modify files marked as 'modifiable'.\n- NEVER invent new files, frameworks, or change the app structure.\n- When the user asks for a change, respond ONLY with the full, updated content of the relevant file.\n- Respond in the format:\n// File: <filename>\n<full file content>\n- The VERY FIRST LINE of your response MUST be // File: <filename> (no commentary, no blank lines before).\n- Only ONE file per response.\n- Do NOT return diffs.\n- The file should be minimal, clean, and correct.\n- If the user request is ambiguous, ask for clarification.\n- Never change files that are not marked as modifiable.\n- Do NOT include explanations, commentary, or extra text—ONLY the file content.\n- IMPORTANT: If you add any persistent state (such as setInterval, setTimeout, or event listeners), you MUST also add an App.cleanup() function that clears all such state. When code is updated, App.cleanup() will be called before reloading. Always ensure that intervals, timeouts, and event listeners are properly removed in App.cleanup().\n- You are also given a list of user wishes (requests) in order. When the user asks to undo or modify a previous wish, use this history to determine the correct action.`;
+      const userPrompt = `User wishes so far:\n${wishHistory}\n\nHere are all modifiable files in the app:\n\n${context}\n\nUser request: ${text}\n\nINSTRUCTIONS: Respond ONLY with the full, updated content of the relevant file. Do not include explanations or commentary. Respond in the format:\n// File: <filename>\n<full file content>\nThe very first line of your response MUST be // File: <filename>. Only one file per response.`;
       const messages = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
