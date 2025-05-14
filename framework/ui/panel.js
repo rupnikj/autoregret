@@ -189,6 +189,9 @@ export function initPanel() {
     const model = localStorage.getItem('autoregret_openai_model');
     // Clear all localStorage
     localStorage.clear();
+    // Remove chat and wishes history
+    localStorage.removeItem('autoregret_chat_history');
+    localStorage.removeItem('autoregret_user_wishes');
     // Restore API key and model
     if (apiKey) localStorage.setItem('autoregret_openai_api_key', apiKey);
     if (model) localStorage.setItem('autoregret_openai_model', model);

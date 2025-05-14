@@ -2,8 +2,17 @@ import { sendPrompt, getApiKey } from '../core/gpt.js';
 import { listFiles, loadFile, saveFile, listHistory, deleteHistoryEntry } from '../core/storage.js';
 import { previewDiff } from '../core/diffEngine.js';
 
+// Load chat history and wishes from localStorage if present
 let chatHistory = [];
 let userWishes = [];
+try {
+  const savedChat = localStorage.getItem('autoregret_chat_history');
+  if (savedChat) chatHistory = JSON.parse(savedChat);
+} catch (e) { chatHistory = []; }
+try {
+  const savedWishes = localStorage.getItem('autoregret_user_wishes');
+  if (savedWishes) userWishes = JSON.parse(savedWishes);
+} catch (e) { userWishes = []; }
 
 function escapeHTML(str) {
   return str.replace(/[&<>"']/g, function (c) {
@@ -260,6 +269,11 @@ export function renderChat(container, opts) {
     if (!text) return;
     chatHistory.push({ role: 'user', content: text });
     userWishes.push(text);
+    // Persist chatHistory and userWishes
+    try {
+      localStorage.setItem('autoregret_chat_history', JSON.stringify(chatHistory));
+      localStorage.setItem('autoregret_user_wishes', JSON.stringify(userWishes));
+    } catch (e) {}
     renderMessages();
     input.value = '';
     chatPlaceholder.textContent = 'Thinking...';
@@ -285,6 +299,10 @@ export function renderChat(container, opts) {
         const fileContent = match[2];
         const msgObj = { role: 'assistant', content: fileContent, fileName, promptHistory };
         chatHistory.push(msgObj);
+        // Persist chatHistory
+        try {
+          localStorage.setItem('autoregret_chat_history', JSON.stringify(chatHistory));
+        } catch (e) {}
         // Auto-apply if enabled
         if (autoApply) {
           setTimeout(async () => {
@@ -306,6 +324,10 @@ export function renderChat(container, opts) {
         }
       } else {
         chatHistory.push({ role: 'assistant', content: response, promptHistory });
+        // Persist chatHistory
+        try {
+          localStorage.setItem('autoregret_chat_history', JSON.stringify(chatHistory));
+        } catch (e) {}
       }
       renderMessages();
       chatPlaceholder.textContent = 'Type or record what you want this website to self-modify.';
