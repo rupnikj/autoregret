@@ -76,7 +76,7 @@ export function initPanel() {
       <div class="panel-header">
         <span class="panel-header-title" style="cursor:pointer; display:flex; align-items:center; gap:6px;" title="Minimize/Expand">
           AutoRegret
-          <span id="minimize-chevron" style="font-size:18px; transition: transform 0.2s;">▼</span>
+          <span id="minimize-chevron" style="font-size:18px; transition: transform 0.2s;">▲</span>
         </span>
         <div style="display:flex; align-items:center;">
           <label class="auto-apply-toggle" title="Automatically apply chat suggestions" style="white-space:nowrap;">
@@ -236,13 +236,13 @@ export function initPanel() {
       host.style.width = '140px';
       host.style.borderRadius = '10px';
       panelWrapper.classList.add('minimized');
-      chevron.textContent = '▲';
+      chevron.textContent = '▼';
     } else {
       host.style.height = '700px';
       host.style.width = '400px';
       host.style.borderRadius = '10px 10px 10px 10px';
       panelWrapper.classList.remove('minimized');
-      chevron.textContent = '▼';
+      chevron.textContent = '▲';
     }
   };
 
