@@ -206,7 +206,7 @@ export function renderChat(container, opts) {
             return;
           }
           const prevContent = prevFile.content;
-          await saveFile({ ...prevFile, content: msg.content });
+          await saveFile({ ...prevFile, content: msg.content }, 'wish', msg.promptHistory?.wish || userWishes[userWishes.length - 1] || '');
           const history = await listHistory(fileName);
           const luckyHistoryId = history.length ? history[0].id : null;
           msg.luckyState = { prevContent, luckyHistoryId };
@@ -222,7 +222,7 @@ export function renderChat(container, opts) {
             chatPlaceholder.textContent = 'File not found.';
             return;
           }
-          await saveFile({ ...file, content: prevContent });
+          await saveFile({ ...file, content: prevContent }, 'wish', msg.promptHistory?.wish || userWishes[userWishes.length - 1] || '');
           if (luckyHistoryId) await deleteHistoryEntry(luckyHistoryId);
           if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
           delete msg.luckyState;
@@ -313,7 +313,7 @@ export function renderChat(container, opts) {
               const prevFile = await loadFile(fileName);
               if (prevFile) {
                 const prevContent = prevFile.content;
-                await saveFile({ ...prevFile, content: fileContent });
+                await saveFile({ ...prevFile, content: fileContent }, 'wish', text);
                 const history = await listHistory(fileName);
                 const luckyHistoryId = history.length ? history[0].id : null;
                 msgObj.luckyState = { prevContent, luckyHistoryId };

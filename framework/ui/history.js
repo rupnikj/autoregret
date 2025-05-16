@@ -44,13 +44,21 @@ export async function renderHistory(container) {
       `;
     }
     if (history.length) {
-      html += history.map((h, idx) => `
+      html += history.map((h, idx) => {
+        let actionLabel = '';
+        if (h.action === 'wish' && h.wish) {
+          actionLabel = `<span style='color:#007aff;'>Wish:</span> ${escapeHTML(h.wish)}`;
+        } else if (h.action === 'restore' && h.wish) {
+          actionLabel = `<span style='color:#b31d28;'>Restored version</span> ${h.wish}`;
+        }
+        return `
         <div style="margin-bottom:10px; border-bottom:1px solid #eee; padding-bottom:6px; position:relative;">
-          <div><b>Version:</b> ${h.id} <b>Saved:</b> ${new Date(h.timestamp).toLocaleString()}</div>
+          <div><b>Version:</b> ${h.id} <b>Saved:</b> ${new Date(h.timestamp).toLocaleString()}${actionLabel ? ' <b>Action:</b> ' + actionLabel : ''}</div>
           <pre style="background:#f4f4f4; padding:6px; border-radius:4px; overflow:auto;">${escapeHTML(h.content)}</pre>
           <button data-id="${h.id}" class="history-restore">Restore this version</button>
         </div>
-      `).join('');
+      `;
+      }).join('');
     }
     historyList.innerHTML = html;
     // Wire up restore buttons

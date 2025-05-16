@@ -72,7 +72,7 @@ export async function loadFile(name) {
   });
 }
 
-export async function saveFile(fileObj) {
+export async function saveFile(fileObj, action = 'wish', wish = null) {
   // Before saving, push the previous version to history
   const prev = await loadFile(fileObj.name);
   if (prev) {
@@ -82,7 +82,9 @@ export async function saveFile(fileObj) {
       modifiable: prev.modifiable,
       framework: prev.framework,
       lastModified: prev.lastModified,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      action,
+      wish
     });
   }
   return new Promise((resolve, reject) => {
@@ -130,7 +132,7 @@ export async function restoreHistory(fileName, historyId) {
     modifiable: entry.modifiable,
     framework: entry.framework,
     lastModified: Date.now()
-  });
+  }, 'restore', historyId);
 }
 
 async function getHistoryById(id) {
