@@ -4,6 +4,22 @@ import { renderEditor } from './editor.js';
 import { renderChat } from './chat.js';
 import { renderHistory } from './history.js';
 
+function getAutoApply() {
+  const val = localStorage.getItem('autoregret_auto_apply');
+  return val === null ? true : val === 'true';
+}
+function setAutoApply(val) {
+  localStorage.setItem('autoregret_auto_apply', !!val);
+}
+
+function getYoloAutoSend() {
+  const val = localStorage.getItem('autoregret_yolo_autosend');
+  return val === null ? true : val === 'true';
+}
+function setYoloAutoSend(val) {
+  localStorage.setItem('autoregret_yolo_autosend', !!val);
+}
+
 export function initPanel() {
   if (document.getElementById('autoregret-shadow-host')) return;
   const host = document.createElement('div');
@@ -79,9 +95,6 @@ export function initPanel() {
           <span id="minimize-chevron" style="font-size:18px; transition: transform 0.2s;">▲</span>
         </span>
         <div style="display:flex; align-items:center;">
-          <label class="auto-apply-toggle" title="Automatically apply chat suggestions" style="white-space:nowrap;">
-            <input type="checkbox" id="auto-apply-toggle" checked /> Auto-Apply
-          </label>
           <button class="save-btn" title="Download as HTML" style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:18px; margin-left:8px; box-shadow:0 1px 2px #e0e6ef; transition:background 0.2s; position: static;">💾</button>
           <button class="purge-btn" title="Purge DB">🗑️</button>
           <button class="settings-btn" title="Settings">⚙️</button>
@@ -96,19 +109,9 @@ export function initPanel() {
       <div id="settings-modal" style="display:none"></div>
     </div>
   `;
-  const autoApplyToggle = shadow.getElementById('auto-apply-toggle');
   const saveBtn = shadow.querySelector('.save-btn');
-  let autoApply = true;
   let currentTab = 'chat';
   let minimized = false;
-
-  autoApplyToggle.onchange = () => {
-    autoApply = autoApplyToggle.checked;
-    // If currently on the chat tab, re-render it with the new autoApply value
-    if (currentTab === 'chat') {
-      renderTab('chat');
-    }
-  };
 
   const tabs = shadow.querySelectorAll('.tab');
   const content = shadow.getElementById('tab-content');
@@ -126,8 +129,7 @@ export function initPanel() {
     content.innerHTML = '';
     if (tabName === 'editor') renderEditor(content);
     else if (tabName === 'chat') {
-      renderChat(content, { autoApply });
-      // Focus the chat input after rendering
+      renderChat(content, { autoApply: getAutoApply() });
       setTimeout(() => {
         const input = content.querySelector('#chat-input');
         if (input) input.focus();
@@ -153,34 +155,68 @@ export function initPanel() {
   settingsBtn.onclick = () => {
     const currentKey = getApiKey();
     const currentModel = getModel();
+    const currentAutoApply = getAutoApply();
+    const currentYolo = getYoloAutoSend();
     settingsModal.innerHTML = `
-      <div class="settings-modal">
-        <div class="settings-content">
-          <h3>OpenAI Settings</h3>
-          <label>API Key
+      <div class="settings-modal" tabindex="0">
+        <form class="settings-content" id="settings-form" autocomplete="off" style="display: flex; flex-direction: column; gap: 12px;">
+          <div style="font-size: 1.3em; font-weight: bold; margin-bottom: 8px;">OpenAI Settings</div>
+          <label>
+            API Key
             <input type="password" id="api-key-input" value="${currentKey}" placeholder="sk-..." autocomplete="off" />
           </label>
-          <label>Model
+          <label>
+            Model
             <input type="text" id="model-input" value="${currentModel}" placeholder="gpt-4.1" />
           </label>
-          <button id="save-settings">Save</button>
-          <button id="close-settings" style="margin-left:8px">Cancel</button>
-        </div>
+          <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+            <input type="checkbox" id="auto-apply-setting" ${currentAutoApply ? 'checked' : ''} style="width: 18px; height: 18px;" />
+            <span style="font-size: 1em;">Auto-Apply chat suggestions</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+            <input type="checkbox" id="yolo-autosend-setting" ${currentYolo ? 'checked' : ''} style="width: 18px; height: 18px;" />
+            <span style="font-size: 1em;">YOLO: Auto-send after voice transcription</span>
+          </label>
+          <div style="display: flex; gap: 12px; margin-top: 16px;">
+            <button type="submit" id="save-settings">Save</button>
+            <button type="button" id="close-settings">Cancel</button>
+          </div>
+        </form>
       </div>
     `;
     settingsModal.style.display = '';
-    shadow.getElementById('save-settings').onclick = () => {
+
+    // Focus for ESC key
+    const modalDiv = shadow.querySelector('.settings-modal');
+    if (modalDiv) modalDiv.focus();
+
+    // Save handler
+    shadow.getElementById('settings-form').onsubmit = (e) => {
+      e.preventDefault();
       const key = shadow.getElementById('api-key-input').value.trim();
       const model = shadow.getElementById('model-input').value.trim();
+      const autoApply = shadow.getElementById('auto-apply-setting').checked;
+      const yoloAutoSend = shadow.getElementById('yolo-autosend-setting').checked;
       setApiKey(key);
       setModel(model);
+      setAutoApply(autoApply);
+      setYoloAutoSend(yoloAutoSend);
       settingsModal.style.display = 'none';
       // Re-render chat tab if it's active
       if (currentTab === 'chat') renderTab('chat');
     };
+
+    // Cancel handler
     shadow.getElementById('close-settings').onclick = () => {
       settingsModal.style.display = 'none';
     };
+
+    // ESC key closes modal
+    modalDiv.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        settingsModal.style.display = 'none';
+      }
+    });
   };
   purgeBtn.onclick = async () => {
     if (!confirm('Purge all app data and restore to original state? This cannot be undone.')) return;

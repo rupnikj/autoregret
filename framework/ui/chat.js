@@ -33,6 +33,11 @@ function MicIcon({ recording }) {
   }
 }
 
+function getYoloAutoSend() {
+  const val = localStorage.getItem('autoregret_yolo_autosend');
+  return val === null ? true : val === 'true';
+}
+
 export function renderChat(container, opts) {
   const autoApply = opts && typeof opts.autoApply !== 'undefined' ? opts.autoApply : true;
   function getCollapseIconAndTitle() {
@@ -163,8 +168,10 @@ export function renderChat(container, opts) {
         input.value = data.text;
         chatPlaceholder.textContent = 'Voice transcribed!';
         input.focus();
-        // YOLO: Send immediately after transcription
-        sendBtn.click();
+        // YOLO: Only auto-send if enabled in settings
+        if (getYoloAutoSend()) {
+          sendBtn.click();
+        }
       } else {
         chatPlaceholder.textContent = 'Transcription failed.';
       }
