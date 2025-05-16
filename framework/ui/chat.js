@@ -15,6 +15,10 @@ try {
 } catch (e) { userWishes = []; }
 
 let allCollapsed = false;
+let currentRequestId = 0;
+let pendingController = null;
+let pendingWishes = [];
+let lastSentWish = null;
 
 function escapeHTML(str) {
   return str.replace(/[&<>"']/g, function (c) {
@@ -319,8 +323,22 @@ export function renderChat(container, opts) {
   }
 
   sendBtn.onclick = async () => {
+    if (pendingController) {
+      // Abort previous request if possible
+      pendingController.abort();
+      // Add the last sent wish to the batch (if not already present)
+      if (lastSentWish && (pendingWishes.length === 0 || pendingWishes[pendingWishes.length - 1] !== lastSentWish)) {
+        pendingWishes.push(lastSentWish);
+      }
+    }
     const text = input.value.trim();
     if (!text) return;
+    // Remove duplicate if the last pending wish is the same as the current
+    let batchWishes = [...pendingWishes];
+    if (batchWishes.length === 0 || batchWishes[batchWishes.length - 1] !== text) {
+      batchWishes.push(text);
+    }
+    lastSentWish = text;
     chatHistory.push({ role: 'user', content: text });
     userWishes.push(text);
     // Persist chatHistory and userWishes
@@ -331,20 +349,36 @@ export function renderChat(container, opts) {
     renderMessages();
     input.value = '';
     chatPlaceholder.textContent = 'Thinking...';
+    // Track request id
+    const requestId = ++currentRequestId;
+    // Setup abort controller for fetch
+    pendingController = new AbortController();
     try {
       // Gather file context
       const files = await listFiles();
       const modFiles = files.filter(f => f.modifiable);
       const context = modFiles.map(f => `// File: ${f.name}\n${f.content}`).join('\n\n');
-      // Add wish history to the prompt
-      const wishHistory = userWishes.map((wish, i) => `${i + 1}. ${wish}`).join('\n');
+      // Use the batch of pending wishes plus the current one
+      const batchWishHistory = batchWishes.map((wish, i) => `${i + 1}. ${wish}`).join('\n');
       const systemPrompt = `You are AutoRegret, an AI code assistant for a live-editable JavaScript frontend app.\n\n- The app consists of the following files (see below), each shown as: // File: <name>\n<content>\n- The app is pure client-side, using only vanilla JavaScript (NO frameworks, NO Node.js, NO backend).\n- The app uses a virtual file system; files are loaded and executed via eval() in the browser.\n- The entry point is always App.init().\n- NEVER use ES module syntax (do NOT use 'import' or 'export' statements).\n- Only modify files marked as 'modifiable'.\n- NEVER invent new files, frameworks, or change the app structure.\n- When the user asks for a change, respond ONLY with the full, updated content of the relevant file.\n- Respond in the format:\n// File: <filename>\n<full file content>\n- The VERY FIRST LINE of your response MUST be // File: <filename> (no commentary, no blank lines before).\n- Only ONE file per response.\n- Do NOT return diffs.\n- The file should be minimal, clean, and correct.\n- If the user request is ambiguous, ask for clarification.\n- Never change files that are not marked as modifiable.\n- Do NOT include explanations, commentary, or extra text—ONLY the file content.\n- IMPORTANT: If you add any persistent state (such as setInterval, setTimeout, or event listeners), you MUST also add an App.cleanup() function that clears all such state. When code is updated, App.cleanup() will be called before reloading. Always ensure that intervals, timeouts, and event listeners are properly removed in App.cleanup().\n- You are also given a list of user wishes (requests) in order. When the user asks to undo or modify a previous wish, use this history to determine the correct action.`;
-      const userPrompt = `User wishes so far:\n${wishHistory}\n\nHere are all modifiable files in the app:\n\n${context}\n\nUser request: ${text}\n\nINSTRUCTIONS: Respond ONLY with the full, updated content of the relevant file. Do not include explanations or commentary. Respond in the format:\n// File: <filename>\n<full file content>\nThe very first line of your response MUST be // File: <filename>. Only one file per response.`;
+      const userPrompt = `Recent wishes to address (in order):\n${batchWishHistory}\n\nHere are all modifiable files in the app:\n\n${context}\n\nINSTRUCTIONS: Update the code to reflect all of these wishes, in order. Respond ONLY with the full, updated content of the relevant file. Do not include explanations or commentary. Respond in the format:\n// File: <filename>\n<full file content>\nThe very first line of your response MUST be // File: <filename>. Only one file per response.`;
       const messages = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ];
-      const response = await sendPrompt('', messages);
+      // Patch sendPrompt to support abort signal
+      let response;
+      try {
+        response = await sendPrompt('', messages, pendingController.signal);
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          chatPlaceholder.textContent = 'Previous request canceled.';
+          return;
+        }
+        throw err;
+      }
+      // Only process if this is the latest request
+      if (requestId !== currentRequestId) return;
       // Try to extract file name and content from response (robust to whitespace)
       const match = response.match(/^\s*\/\/\s*File:\s*([\w.\-\/]+)\s*\n([\s\S]*)$/m);
       const promptHistory = { systemPrompt, userPrompt, gptOutput: response };
@@ -385,13 +419,22 @@ export function renderChat(container, opts) {
       }
       renderMessages();
       chatPlaceholder.textContent = 'Type or record what you want this website to self-modify.';
+      // Clear the batch and lastSentWish after a successful response
+      pendingWishes = [];
+      lastSentWish = null;
     } catch (e) {
+      if (e.name === 'AbortError') {
+        chatPlaceholder.textContent = 'Previous request canceled.';
+        return;
+      }
       chatPlaceholder.textContent = 'Error: ' + e.message;
       if (/401|unauthorized|invalid api key|invalid authentication/i.test(e.message)) {
         chatPlaceholder.style.color = '#b31d28'; // red
       } else {
         chatPlaceholder.style.color = '#888'; // default
       }
+    } finally {
+      pendingController = null;
     }
   };
 
