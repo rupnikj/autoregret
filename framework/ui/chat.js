@@ -14,6 +14,8 @@ try {
   if (savedWishes) userWishes = JSON.parse(savedWishes);
 } catch (e) { userWishes = []; }
 
+let allCollapsed = false;
+
 function escapeHTML(str) {
   return str.replace(/[&<>"']/g, function (c) {
     return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
@@ -33,8 +35,17 @@ function MicIcon({ recording }) {
 
 export function renderChat(container, opts) {
   const autoApply = opts && typeof opts.autoApply !== 'undefined' ? opts.autoApply : true;
+  function getCollapseIconAndTitle() {
+    return allCollapsed
+      ? { icon: '&#9660;', title: 'Expand all code responses' } // ▼
+      : { icon: '&#9650;', title: 'Collapse all code responses' }; // ▲
+  }
+  const { icon, title } = getCollapseIconAndTitle();
   container.innerHTML = `
-    <div style="display:flex; flex-direction:column; height:100%">
+    <div style="display:flex; flex-direction:column; height:100%; position:relative;">
+      <button id="collapse-all-btn" title="${title}" style="position:absolute; top:8px; right:12px; z-index:10; background:rgba(255,255,255,0.95); border:1px solid #bbb; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.08); cursor:pointer; font-size:18px;">
+        ${icon}
+      </button>
       <div id="chat-apikey-warning" style="display:none; color:#b31d28; background:#fff3cd; border:1px solid #ffeeba; border-radius:4px; padding:8px; margin-bottom:8px; font-size:14px;"></div>
       <div id="chat-messages" style="flex:1; overflow:auto; margin-bottom:8px; background:#f9f9f9; padding:8px; border-radius:6px; min-height:60px;"></div>
       <div style="display:flex; gap:8px; align-items:center;">
@@ -163,9 +174,12 @@ export function renderChat(container, opts) {
   }
 
   function renderMessages() {
-    messagesDiv.innerHTML = chatHistory.map((msg, idx) => {
+    let html = '';
+    html += chatHistory.map((msg, idx) => {
       if (msg.role === 'assistant' && msg.fileName && msg.content) {
-        // Show file output with prompt history toggle and lucky/revert button
+        // Per-message collapse state
+        if (typeof msg.collapsed === 'undefined') msg.collapsed = allCollapsed;
+        const isCollapsed = msg.collapsed;
         const isLucky = !!msg.luckyState;
         const showDiff = msg.showChatDiff;
         const promptDetails = msg.promptHistory ? `
@@ -174,7 +188,18 @@ export function renderChat(container, opts) {
             <b>User Prompt:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.userPrompt)}</pre>
             <b>Raw GPT Output:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.gptOutput)}</pre>
           </div>` : '';
-        return `<div style="margin-bottom:6px;"><b>GPT (file):</b><pre style='background:#eee; padding:6px; border-radius:4px; overflow:auto;'>${escapeHTML(msg.content)}</pre><div style='display:flex; gap:8px; margin-top:4px;'><button class='chat-lucky' data-idx='${idx}'>${isLucky ? 'Revert' : "Apply"}</button><button class='chat-toggle-diff' data-idx='${idx}'>${showDiff ? 'Hide Diff' : 'Show Diff'}</button>${msg.promptHistory ? `<button class='toggle-prompt-history' data-idx='${idx}'>${msg.showPromptHistory ? 'Hide' : 'Show'} Prompt Details</button>` : ''}</div><pre class='chat-inline-diff' style='margin-top:6px; background:#f9f9f9; padding:8px; border-radius:6px; overflow:auto; max-height:180px; font-family:monospace; font-size:13px; white-space:pre-wrap; border:1px solid #e0e6ef;'>${showDiff ? 'Loading diff...' : ''}</pre>${promptDetails}</div>`;
+        return `<div style="margin-bottom:6px;">
+          <b>GPT (file):</b>
+          <div class="code-block" style="${isCollapsed ? 'display:none;' : ''}"><pre style='background:#eee; padding:6px; border-radius:4px; overflow:auto;'>${escapeHTML(msg.content)}</pre></div>
+          <div style='display:flex; gap:8px; margin-top:4px;'>
+            <button class='chat-lucky' data-idx='${idx}'>${isLucky ? 'Revert' : "Apply"}</button>
+            <button class='chat-toggle-diff' data-idx='${idx}'>${showDiff ? 'Hide Diff' : 'Show Diff'}</button>
+            <button class="collapse-toggle" data-idx="${idx}">${isCollapsed ? 'Show' : 'Hide'}</button>
+            ${msg.promptHistory ? `<button class='toggle-prompt-history' data-idx='${idx}'>${msg.showPromptHistory ? 'Hide' : 'Show'} Prompt Details</button>` : ''}
+          </div>
+          <pre class='chat-inline-diff' style='margin-top:6px; background:#f9f9f9; padding:8px; border-radius:6px; overflow:auto; max-height:180px; font-family:monospace; font-size:13px; white-space:pre-wrap; border:1px solid #e0e6ef;'>${showDiff ? 'Loading diff...' : ''}</pre>
+          ${promptDetails}
+        </div>`;
       }
       if (msg.role === 'assistant' && msg.promptHistory) {
         // Non-file GPT output with prompt history
@@ -191,7 +216,34 @@ export function renderChat(container, opts) {
       }
       return `<div style="margin-bottom:6px;"><b>${msg.role === 'user' ? 'You' : 'GPT'}:</b> ${escapeHTML(msg.content)}</div>`;
     }).join('');
+    messagesDiv.innerHTML = html;
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    // Collapse/expand all logic
+    const collapseAllBtn = container.querySelector('#collapse-all-btn');
+    if (collapseAllBtn) {
+      collapseAllBtn.onclick = () => {
+        allCollapsed = !allCollapsed;
+        chatHistory.forEach(msg => {
+          if (msg.role === 'assistant' && msg.fileName && msg.content) {
+            msg.collapsed = allCollapsed;
+          }
+        });
+        // Update icon and tooltip
+        const { icon, title } = getCollapseIconAndTitle();
+        collapseAllBtn.innerHTML = icon;
+        collapseAllBtn.title = title;
+        renderMessages();
+      };
+    }
+    // Per-message collapse toggles
+    messagesDiv.querySelectorAll('.collapse-toggle').forEach(btn => {
+      btn.onclick = () => {
+        const idx = parseInt(btn.getAttribute('data-idx'), 10);
+        const msg = chatHistory[idx];
+        msg.collapsed = !msg.collapsed;
+        renderMessages();
+      };
+    });
     // Wire up "Apply"/"Revert" buttons
     messagesDiv.querySelectorAll('.chat-lucky').forEach((btn, i) => {
       btn.onclick = async () => {
