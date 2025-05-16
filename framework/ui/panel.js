@@ -160,13 +160,13 @@ export function initPanel() {
     settingsModal.innerHTML = `
       <div class="settings-modal" tabindex="0">
         <form class="settings-content" id="settings-form" autocomplete="off" style="display: flex; flex-direction: column; gap: 12px;">
-          <div style="font-size: 1.3em; font-weight: bold; margin-bottom: 8px;">OpenAI Settings</div>
+          <div style="font-size: 1.3em; font-weight: bold; margin-bottom: 8px;">Settings</div>
           <label>
-            API Key
+            OpenAI API Key
             <input type="password" id="api-key-input" value="${currentKey}" placeholder="sk-..." autocomplete="off" />
           </label>
           <label>
-            Model
+            OpenAI Model
             <input type="text" id="model-input" value="${currentModel}" placeholder="gpt-4.1" />
           </label>
           <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
@@ -178,18 +178,22 @@ export function initPanel() {
             <span style="font-size: 1em;">YOLO: Auto-send after voice transcription</span>
           </label>
           <div style="display: flex; gap: 12px; margin-top: 16px;">
-            <button type="submit" id="save-settings">Save</button>
-            <button type="button" id="close-settings">Cancel</button>
+            <button type="submit" id="save-settings">Save Settings</button>
+            <button type="button" id="close-settings">Cancel Settings</button>
           </div>
+          <hr style="margin: 18px 0 8px 0; border: none; border-top: 1px solid #eee;" />
+          <div style="font-size: 1em; color: #888; margin-bottom: 4px;">Backup & Restore</div>
+          <div style="display: flex; gap: 12px; margin-bottom: 8px;">
+            <button type="button" id="export-state">Export App State</button>
+            <button type="button" id="import-state">Import App State</button>
+          </div>
+          <input type="file" id="import-state-file" accept="application/json" style="display:none" />
         </form>
       </div>
     `;
     settingsModal.style.display = '';
-
-    // Focus for ESC key
     const modalDiv = shadow.querySelector('.settings-modal');
     if (modalDiv) modalDiv.focus();
-
     // Save handler
     shadow.getElementById('settings-form').onsubmit = (e) => {
       e.preventDefault();
@@ -217,6 +221,107 @@ export function initPanel() {
         settingsModal.style.display = 'none';
       }
     });
+
+    // Save State logic
+    shadow.getElementById('export-state').onclick = async () => {
+      // Gather localStorage (except API key)
+      const localKeys = [
+        'autoregret_chat_history',
+        'autoregret_user_wishes',
+        'autoregret_auto_apply',
+        'autoregret_yolo_autosend',
+        'autoregret_openai_model'
+      ];
+      const localStorageState = {};
+      for (const key of localKeys) {
+        const val = localStorage.getItem(key);
+        if (val !== null) localStorageState[key] = val;
+      }
+      // Gather files and history from IndexedDB
+      const { listFiles, listHistory } = await import('../core/storage.js');
+      const files = await listFiles();
+      // Gather all history for all files
+      let allHistory = [];
+      for (const file of files) {
+        const history = await listHistory(file.name);
+        allHistory = allHistory.concat(history);
+      }
+      // Build export object
+      const exportObj = {
+        version: 1,
+        localStorage: localStorageState,
+        files,
+        history: allHistory
+      };
+      const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'autoregret-state.json';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    };
+
+    // Load State logic
+    const importInput = shadow.getElementById('import-state-file');
+    shadow.getElementById('import-state').onclick = () => {
+      importInput.value = '';
+      importInput.click();
+    };
+    importInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        alert('Invalid JSON file.');
+        return;
+      }
+      if (!data || typeof data !== 'object' || !data.files || !data.localStorage) {
+        alert('Invalid state file format.');
+        return;
+      }
+      // Restore localStorage (except API key)
+      for (const [key, val] of Object.entries(data.localStorage)) {
+        if (key !== 'autoregret_openai_api_key') {
+          localStorage.setItem(key, val);
+        }
+      }
+      // Restore files and history in IndexedDB
+      const { initStorage, saveFile } = await import('../core/storage.js');
+      await initStorage();
+      // Clear all files and history
+      const dbReq = indexedDB.open('autoregret-files');
+      dbReq.onsuccess = async (event) => {
+        const db = event.target.result;
+        const tx = db.transaction(['files', 'history'], 'readwrite');
+        tx.objectStore('files').clear();
+        tx.objectStore('history').clear();
+        tx.oncomplete = async () => {
+          // Restore files
+          for (const file of data.files) {
+            await saveFile(file, 'import', 'imported');
+          }
+          // Restore history
+          if (data.history && Array.isArray(data.history)) {
+            for (const h of data.history) {
+              try {
+                const txh = db.transaction('history', 'readwrite');
+                txh.objectStore('history').add(h);
+              } catch (e) {}
+            }
+          }
+          // Reload app to reflect imported state
+          location.reload();
+        };
+      };
+    };
   };
   purgeBtn.onclick = async () => {
     if (!confirm('Purge all app data and restore to original state? This cannot be undone.')) return;
