@@ -70,7 +70,7 @@ async function saveCurrentFile() {
   if (!currentFileObj) return;
   const newContent = cmInstance.state.doc.toString();
   if (newContent !== currentFileObj.content) {
-    await saveFile({ ...currentFileObj, content: newContent });
+    await saveFile({ ...currentFileObj, content: newContent }, 'manual', 'Manual edit');
     currentFileObj.content = newContent;
   }
 } 
