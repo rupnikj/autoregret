@@ -152,6 +152,8 @@ export function renderChat(container, opts) {
         input.value = data.text;
         chatPlaceholder.textContent = 'Voice transcribed!';
         input.focus();
+        // YOLO: Send immediately after transcription
+        sendBtn.click();
       } else {
         chatPlaceholder.textContent = 'Transcription failed.';
       }

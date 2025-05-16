@@ -246,6 +246,42 @@ export function initPanel() {
     }
   };
 
+  // --- Draggable Panel Logic ---
+  let isDragging = false;
+  let dragOffsetX = 0;
+  let dragOffsetY = 0;
+
+  // Use the panel header as the drag handle
+  const panelHeader = shadow.querySelector('.panel-header');
+  panelHeader.style.cursor = 'move';
+
+  panelHeader.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    // Calculate offset relative to the host's top-left
+    const rect = host.getBoundingClientRect();
+    dragOffsetX = e.clientX - rect.left;
+    dragOffsetY = e.clientY - rect.top;
+    document.body.style.userSelect = 'none';
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    // Calculate new position
+    let newLeft = e.clientX - dragOffsetX;
+    let newTop = e.clientY - dragOffsetY;
+    // Clamp to viewport
+    newLeft = Math.max(0, Math.min(window.innerWidth - host.offsetWidth, newLeft));
+    newTop = Math.max(0, Math.min(window.innerHeight - host.offsetHeight, newTop));
+    host.style.left = newLeft + 'px';
+    host.style.top = newTop + 'px';
+    host.style.right = '';
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+    document.body.style.userSelect = '';
+  });
+
   saveBtn.onclick = async () => {
     saveBtn.disabled = true;
     saveBtn.style.opacity = '0.6';
