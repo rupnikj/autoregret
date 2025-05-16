@@ -20,6 +20,14 @@ function setYoloAutoSend(val) {
   localStorage.setItem('autoregret_yolo_autosend', !!val);
 }
 
+function getShowWelcomeButton() {
+  const val = localStorage.getItem('autoregret_show_welcome_button');
+  return val === null ? true : val === 'true';
+}
+function setShowWelcomeButton(val) {
+  localStorage.setItem('autoregret_show_welcome_button', !!val);
+}
+
 export function initPanel() {
   if (document.getElementById('autoregret-shadow-host')) return;
   const host = document.createElement('div');
@@ -157,6 +165,7 @@ export function initPanel() {
     const currentModel = getModel();
     const currentAutoApply = getAutoApply();
     const currentYolo = getYoloAutoSend();
+    const currentShowWelcomeBtn = getShowWelcomeButton();
     settingsModal.innerHTML = `
       <div class="settings-modal" tabindex="0">
         <form class="settings-content" id="settings-form" autocomplete="off" style="display: flex; flex-direction: column; gap: 12px;">
@@ -176,6 +185,10 @@ export function initPanel() {
           <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
             <input type="checkbox" id="yolo-autosend-setting" ${currentYolo ? 'checked' : ''} style="width: 18px; height: 18px;" />
             <span style="font-size: 1em;">YOLO: Auto-send after voice transcription</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+            <input type="checkbox" id="show-welcome-btn-setting" ${currentShowWelcomeBtn ? 'checked' : ''} style="width: 18px; height: 18px;" />
+            <span style="font-size: 1em;">Show welcome button</span>
           </label>
           <div style="display: flex; gap: 12px; margin-top: 16px;">
             <button type="submit" id="save-settings">Save Settings</button>
@@ -201,10 +214,12 @@ export function initPanel() {
       const model = shadow.getElementById('model-input').value.trim();
       const autoApply = shadow.getElementById('auto-apply-setting').checked;
       const yoloAutoSend = shadow.getElementById('yolo-autosend-setting').checked;
+      const showWelcomeBtn = shadow.getElementById('show-welcome-btn-setting').checked;
       setApiKey(key);
       setModel(model);
       setAutoApply(autoApply);
       setYoloAutoSend(yoloAutoSend);
+      setShowWelcomeButton(showWelcomeBtn);
       settingsModal.style.display = 'none';
       // Re-render chat tab if it's active
       if (currentTab === 'chat') renderTab('chat');
@@ -230,7 +245,8 @@ export function initPanel() {
         'autoregret_user_wishes',
         'autoregret_auto_apply',
         'autoregret_yolo_autosend',
-        'autoregret_openai_model'
+        'autoregret_openai_model',
+        'autoregret_show_welcome_button'
       ];
       const localStorageState = {};
       for (const key of localKeys) {
@@ -325,17 +341,25 @@ export function initPanel() {
   };
   purgeBtn.onclick = async () => {
     if (!confirm('Purge all app data and restore to original state? This cannot be undone.')) return;
-    // Preserve OpenAI API key and model
-    const apiKey = localStorage.getItem('autoregret_openai_api_key');
-    const model = localStorage.getItem('autoregret_openai_model');
+    // Preserve all user settings
+    const preservedSettings = {
+      apiKey: localStorage.getItem('autoregret_openai_api_key'),
+      model: localStorage.getItem('autoregret_openai_model'),
+      autoApply: localStorage.getItem('autoregret_auto_apply'),
+      yoloAutoSend: localStorage.getItem('autoregret_yolo_autosend'),
+      showWelcome: localStorage.getItem('autoregret_show_welcome_button')
+    };
     // Clear all localStorage
     localStorage.clear();
-    // Remove chat and wishes history
+    // Remove chat and wishes history (redundant after clear, but kept for safety)
     localStorage.removeItem('autoregret_chat_history');
     localStorage.removeItem('autoregret_user_wishes');
-    // Restore API key and model
-    if (apiKey) localStorage.setItem('autoregret_openai_api_key', apiKey);
-    if (model) localStorage.setItem('autoregret_openai_model', model);
+    // Restore all settings
+    if (preservedSettings.apiKey) localStorage.setItem('autoregret_openai_api_key', preservedSettings.apiKey);
+    if (preservedSettings.model) localStorage.setItem('autoregret_openai_model', preservedSettings.model);
+    if (preservedSettings.autoApply) localStorage.setItem('autoregret_auto_apply', preservedSettings.autoApply);
+    if (preservedSettings.yoloAutoSend) localStorage.setItem('autoregret_yolo_autosend', preservedSettings.yoloAutoSend);
+    if (preservedSettings.showWelcome) localStorage.setItem('autoregret_show_welcome_button', preservedSettings.showWelcome);
     // Delete ALL IndexedDB databases (not just autoregret-files)
     if (indexedDB.databases) {
       // Modern browsers: enumerate and delete all

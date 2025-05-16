@@ -28,16 +28,25 @@ export async function initStorage() {
   });
 }
 
+// Helper for show welcome button setting
+function getShowWelcomeButton() {
+  const val = localStorage.getItem('autoregret_show_welcome_button');
+  return val === null ? true : val === 'true';
+}
+
 async function seedInitialFiles() {
-  // Load initial files from /app/ directory
+  // Decide which App.js to use based on the toggle
+  const showWelcome = getShowWelcomeButton();
+  const appFile = showWelcome ? { name: 'App.js', path: 'app/App.js', modifiable: true, framework: 'vanilla' }
+                             : { name: 'App.js', path: 'app/App.simple.js', modifiable: true, framework: 'vanilla' };
   const initialFiles = [
-    { name: 'App.js', path: 'app/App.js', modifiable: true, framework: 'vanilla' },
+    appFile,
     { name: 'utils.js', path: 'app/utils.js', modifiable: true, framework: 'vanilla' },
     { name: 'config.json', path: 'app/config.json', modifiable: true, framework: 'vanilla' }
   ];
   for (const file of initialFiles) {
     try {
-      const res = await fetch(file.path);
+      const res = await fetch(`${file.path}?cb=${Date.now()}`); // bust cache
       const content = await res.text();
       await saveFile({
         name: file.name,
