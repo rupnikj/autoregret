@@ -321,6 +321,7 @@ export function renderChat(container, opts) {
   sendBtn.onclick = async () => {
     const text = input.value.trim();
     if (!text) return;
+    sendBtn.disabled = true;
     chatHistory.push({ role: 'user', content: text });
     userWishes.push(text);
     // Persist chatHistory and userWishes
@@ -393,6 +394,7 @@ export function renderChat(container, opts) {
         chatPlaceholder.style.color = '#888'; // default
       }
     }
+    sendBtn.disabled = false;
   };
 
   input.addEventListener('keydown', e => {
