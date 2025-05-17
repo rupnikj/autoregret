@@ -421,7 +421,7 @@ export function renderChat(container, opts) {
   renderMessages();
 }
 
-// Pretty diff colorizer (copied from diff.js)
+// Pretty diff colorizer
 function colorizeDiff(diffText) {
   return diffText.split('\n').map(line => {
     if (line.startsWith('+') && !line.startsWith('+++')) {

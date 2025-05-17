@@ -140,7 +140,6 @@ v
 │   ├── ui/
 │   │   ├── panel.js          # Floating Shadow DOM panel
 │   │   ├── editor.js         # CodeMirror integration
-│   │   ├── diff.js           # Renders GPT-generated diffs
 │   │   └── chat.js           # Handles user input and GPT responses
 │   ├── core/
 │   │   ├── gpt.js            # OpenAI GPT API client

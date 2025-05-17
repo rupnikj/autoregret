@@ -31,7 +31,6 @@ AutoRegret is a self-modifying, client-side web application that allows users to
 
 ### 6. Diff & Patch
 - **`framework/core/diffEngine.js`**: Uses the `diff` library (via CDN) to generate and apply unified diffs between file versions.
-- **`framework/ui/diff.js`**: UI for manual diff/patch application, with colorized diff output.
 
 ### 7. Code Editor
 - **`framework/ui/editor.js`**: Provides a file picker and code editor (CodeMirror) for direct editing of any modifiable file.
