@@ -267,6 +267,13 @@ export function initPanel() {
       }
     });
 
+    // Clicking outside modal content closes modal
+    modalDiv.addEventListener('mousedown', (e) => {
+      if (e.target === modalDiv) {
+        settingsModal.style.display = 'none';
+      }
+    });
+
     // Save State logic
     shadow.getElementById('export-state').onclick = async () => {
       // Gather localStorage (except API key)
