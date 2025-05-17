@@ -112,4 +112,4 @@ AutoRegret is a self-modifying, client-side web application that allows users to
 
 ---
 
-For more details, see `AutoRegret-Spec.md`. 
+For more details, see `AutoRegret-Spec.md`.  
