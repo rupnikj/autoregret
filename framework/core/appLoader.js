@@ -8,7 +8,8 @@ export async function loadUserApp() {
       try { window.App.cleanup(); } catch (e) { console.warn('Cleanup error:', e); }
     }
     // --- Ensure loader is available globally ---
-    let loaderCode = await fetch('framework/core/libLoader.js').then(r => r.text());
+    let version = (typeof VERSION !== 'undefined') ? VERSION : (window.VERSION || '__VERSION__');
+    let loaderCode = await fetch(`framework/core/libLoader.js?v=${version}`).then(r => r.text());
     loaderCode = loaderCode.replace(/export\s+(function|const|let|var|class)\s+/g, '$1 ');
     eval(loaderCode);
     const files = await listFiles();

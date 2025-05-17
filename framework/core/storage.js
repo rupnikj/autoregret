@@ -44,9 +44,10 @@ async function seedInitialFiles() {
     { name: 'utils.js', path: 'app/utils.js', modifiable: true, framework: 'vanilla' },
     { name: 'config.json', path: 'app/config.json', modifiable: true, framework: 'vanilla' }
   ];
+  const version = (typeof VERSION !== 'undefined') ? VERSION : (window.VERSION || '__VERSION__');
   for (const file of initialFiles) {
     try {
-      const res = await fetch(`${file.path}?cb=${Date.now()}`); // bust cache
+      const res = await fetch(`${file.path}?v=${version}`); // bust cache
       const content = await res.text();
       await saveFile({
         name: file.name,
