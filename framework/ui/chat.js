@@ -1,6 +1,7 @@
 import { sendPrompt, getApiKey } from '../core/gpt.js';
 import { listFiles, loadFile, saveFile, listHistory, deleteHistoryEntry } from '../core/storage.js';
 import { previewDiff } from '../core/diffEngine.js';
+import { applyV4APatch, V4APatchError } from '../core/v4aPatch.js';
 
 // Load chat history and wishes from localStorage if present
 let chatHistory = [];
@@ -36,6 +37,51 @@ function MicIcon({ recording }) {
 function getYoloAutoSend() {
   const val = localStorage.getItem('autoregret_yolo_autosend');
   return val === null ? true : val === 'true';
+}
+
+function getDiffOnly() {
+  const val = localStorage.getItem('autoregret_diff_only');
+  return val === 'true';
+}
+
+// Helper: detect if a string is a V4A patch
+function isV4APatch(text) {
+  const result = /^\*\*\* Begin Patch/m.test(text) && /\*\*\* End Patch/m.test(text);
+  if (result) console.log('[AutoRegret] Detected V4A patch in response');
+  return result;
+}
+
+// Helper: apply a V4A patch to the virtual FS
+async function applyPatchToFS(patchText) {
+  console.log('[AutoRegret] Attempting to apply V4A patch:', patchText);
+  const filesArr = await listFiles();
+  const files = {};
+  for (const f of filesArr) files[f.name] = f.content;
+  let result;
+  try {
+    result = applyV4APatch(patchText, files);
+    console.log('[AutoRegret] Patch application result:', result);
+  } catch (e) {
+    console.error('[AutoRegret] Patch application error:', e);
+    throw new V4APatchError(e.message);
+  }
+  // Apply updates
+  for (const [name, content] of Object.entries(result.updatedFiles)) {
+    console.log(`[AutoRegret] Updating file: ${name}`);
+    const fileObj = filesArr.find(f => f.name === name);
+    if (fileObj) await saveFile({ ...fileObj, content }, 'patch', 'V4A patch update');
+  }
+  // Add new files
+  for (const [name, content] of Object.entries(result.addedFiles)) {
+    console.log(`[AutoRegret] Adding file: ${name}`);
+    await saveFile({ name, content, modifiable: true, framework: 'vanilla', lastModified: Date.now() }, 'patch', 'V4A patch add');
+  }
+  // Delete files
+  for (const name of result.deletedFiles) {
+    console.log(`[AutoRegret] Deleting file: ${name}`);
+    const fileObj = filesArr.find(f => f.name === name);
+    if (fileObj) await saveFile({ ...fileObj, content: '', modifiable: false }, 'patch', 'V4A patch delete');
+  }
 }
 
 export function renderChat(container, opts) {
@@ -181,32 +227,58 @@ export function renderChat(container, opts) {
   }
 
   function renderMessages() {
+    console.log('[AutoRegret] Rendering chat messages. chatHistory:', chatHistory);
     let html = '';
     html += chatHistory.map((msg, idx) => {
       if (msg.role === 'assistant' && msg.fileName && msg.content) {
-        // Per-message collapse state
-        if (typeof msg.collapsed === 'undefined') msg.collapsed = allCollapsed;
-        const isCollapsed = msg.collapsed;
-        const isLucky = !!msg.luckyState;
-        const showDiff = msg.showChatDiff;
-        const promptDetails = msg.promptHistory ? `
-          <div class='prompt-history-details' style='display:${msg.showPromptHistory ? 'block' : 'none'}; background:#f4f4f4; border-radius:4px; padding:6px; margin-top:4px;'>
-            <b>System Prompt:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.systemPrompt)}</pre>
-            <b>User Prompt:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.userPrompt)}</pre>
-            <b>Raw GPT Output:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.gptOutput)}</pre>
-          </div>` : '';
-        return `<div style="margin-bottom:6px;">
-          <b>GPT (file):</b>
-          <div class="code-block" style="${isCollapsed ? 'display:none;' : ''}"><pre style='background:#eee; padding:6px; border-radius:4px; overflow:auto;'>${escapeHTML(msg.content)}</pre></div>
-          <div style='display:flex; gap:8px; margin-top:4px;'>
-            <button class='chat-lucky' data-idx='${idx}'>${isLucky ? 'Revert' : "Apply"}</button>
-            <button class='chat-toggle-diff' data-idx='${idx}'>${showDiff ? 'Hide Diff' : 'Show Diff'}</button>
-            <button class="collapse-toggle" data-idx="${idx}">${isCollapsed ? 'Show' : 'Hide'}</button>
-            ${msg.promptHistory ? `<button class='toggle-prompt-history' data-idx='${idx}'>${msg.showPromptHistory ? 'Hide' : 'Show'} Prompt Details</button>` : ''}
-          </div>
-          <pre class='chat-inline-diff' style='margin-top:6px; background:#f9f9f9; padding:8px; border-radius:6px; overflow:auto; max-height:180px; font-family:monospace; font-size:13px; white-space:pre-wrap; border:1px solid #e0e6ef;'>${showDiff ? 'Loading diff...' : ''}</pre>
-          ${promptDetails}
-        </div>`;
+        if (isV4APatch(msg.content)) {
+          console.log(`[AutoRegret] Rendering PATCH message at idx ${idx}:`, msg);
+          // PATCH MODE: Show patch in code block, no Show/Hide Diff button
+          const isCollapsed = msg.collapsed;
+          const isLucky = !!msg.luckyState;
+          const promptDetails = msg.promptHistory ? `
+            <div class='prompt-history-details' style='display:${msg.showPromptHistory ? 'block' : 'none'}; background:#f4f4f4; border-radius:4px; padding:6px; margin-top:4px;'>
+              <b>System Prompt:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.systemPrompt)}</pre>
+              <b>User Prompt:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.userPrompt)}</pre>
+              <b>Raw GPT Output:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.gptOutput)}</pre>
+            </div>` : '';
+          return `<div style="margin-bottom:6px;">
+            <b>GPT (patch):</b>
+            <div class="code-block" style="${isCollapsed ? 'display:none;' : ''}"><pre style='background:#eee; padding:6px; border-radius:4px; overflow:auto;'>${escapeHTML(msg.content)}</pre></div>
+            <div style='display:flex; gap:8px; margin-top:4px;'>
+              <button class='chat-lucky' data-idx='${idx}'>${isLucky ? 'Revert' : "Apply"}</button>
+              <button class="collapse-toggle" data-idx="${idx}">${isCollapsed ? 'Show' : 'Hide'}</button>
+              ${msg.promptHistory ? `<button class='toggle-prompt-history' data-idx='${idx}'>${msg.showPromptHistory ? 'Hide' : 'Show'} Prompt Details</button>` : ''}
+            </div>
+            ${promptDetails}
+          </div>`;
+        } else {
+          console.log(`[AutoRegret] Rendering FILE message at idx ${idx}:`, msg);
+          // FILE MODE: Show file, Show/Hide Diff button
+          // Per-message collapse state
+          if (typeof msg.collapsed === 'undefined') msg.collapsed = allCollapsed;
+          const isCollapsed = msg.collapsed;
+          const isLucky = !!msg.luckyState;
+          const showDiff = msg.showChatDiff;
+          const promptDetails = msg.promptHistory ? `
+            <div class='prompt-history-details' style='display:${msg.showPromptHistory ? 'block' : 'none'}; background:#f4f4f4; border-radius:4px; padding:6px; margin-top:4px;'>
+              <b>System Prompt:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.systemPrompt)}</pre>
+              <b>User Prompt:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.userPrompt)}</pre>
+              <b>Raw GPT Output:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.gptOutput)}</pre>
+            </div>` : '';
+          return `<div style="margin-bottom:6px;">
+            <b>GPT (file):</b>
+            <div class="code-block" style="${isCollapsed ? 'display:none;' : ''}"><pre style='background:#eee; padding:6px; border-radius:4px; overflow:auto;'>${escapeHTML(msg.content)}</pre></div>
+            <div style='display:flex; gap:8px; margin-top:4px;'>
+              <button class='chat-lucky' data-idx='${idx}'>${isLucky ? 'Revert' : "Apply"}</button>
+              <button class='chat-toggle-diff' data-idx='${idx}'>${showDiff ? 'Hide Diff' : 'Show Diff'}</button>
+              <button class="collapse-toggle" data-idx="${idx}">${isCollapsed ? 'Show' : 'Hide'}</button>
+              ${msg.promptHistory ? `<button class='toggle-prompt-history' data-idx='${idx}'>${msg.showPromptHistory ? 'Hide' : 'Show'} Prompt Details</button>` : ''}
+            </div>
+            <pre class='chat-inline-diff' style='margin-top:6px; background:#f9f9f9; padding:8px; border-radius:6px; overflow:auto; max-height:180px; font-family:monospace; font-size:13px; white-space:pre-wrap; border:1px solid #e0e6ef;'>${showDiff ? 'Loading diff...' : ''}</pre>
+            ${promptDetails}
+          </div>`;
+        }
       }
       if (msg.role === 'assistant' && msg.promptHistory) {
         // Non-file GPT output with prompt history
@@ -258,6 +330,20 @@ export function renderChat(container, opts) {
         const msg = chatHistory[idx];
         if (!msg) return;
         if (!msg.luckyState) {
+          if (isV4APatch(msg.content)) {
+            // Apply V4A patch
+            try {
+              await applyPatchToFS(msg.content);
+              msg.luckyState = { applied: true };
+              if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
+              renderMessages();
+              chatPlaceholder.textContent = 'Patch applied!';
+            } catch (e) {
+              chatPlaceholder.textContent = 'Patch error: ' + e.message;
+            }
+            return;
+          }
+          // Existing logic for full file
           const fileName = msg.fileName;
           const prevFile = await loadFile(fileName);
           if (!prevFile) {
@@ -347,23 +433,62 @@ export function renderChat(container, opts) {
       // Add wish history to the prompt
       const wishHistory = userWishes.map((wish, i) => `${i + 1}. ${wish}`).join('\n');
       const allowExternalLibs = localStorage.getItem('autoregret_allow_external_libs') === 'true';
-      const systemPromptCommon = `You are AutoRegret, an AI code assistant for a live-editable JavaScript frontend app.\n\n- The app consists of the following files (see below), each shown as: // File: <name>\n<content>\n- The app is pure client-side, using only vanilla JavaScript (NO frameworks, NO Node.js, NO backend).\n- The app uses a virtual file system; files are loaded and executed via eval() in the browser.\n- The entry point is always App.init().\n- NEVER use ES module syntax (do NOT use 'import' or 'export' statements).\n- Only modify files marked as 'modifiable'.\n- NEVER invent new files, frameworks, or change the app structure.\n- When the user asks for a change, respond ONLY with the full, updated content of the relevant file.\n- Respond in the format:\n// File: <filename>\n<full file content>\n- The VERY FIRST LINE of your response MUST be // File: <filename> (no commentary, no blank lines before).\n- Only ONE file per response.\n- Do NOT return diffs.\n- The file should be minimal, clean, and correct.\n- If the user request is ambiguous, ask for clarification.\n- Never change files that are not marked as modifiable.\n- Do NOT include explanations, commentary, or extra text—ONLY the file content.\n- IMPORTANT: If you add any persistent state (such as setInterval, setTimeout, or event listeners), you MUST also add an App.cleanup() function that clears all such state. When code is updated, App.cleanup() will be called before reloading. Always ensure that intervals, timeouts, and event listeners are properly removed in App.cleanup().\n- You are also given a list of user wishes (requests) in order. When the user asks to undo or modify a previous wish, use this history to determine the correct action.`;
-      let systemPrompt;
-      if (allowExternalLibs) {
-        systemPrompt = `${systemPromptCommon}\n\n- If a user wish requires a new JavaScript library, you MUST use the global function loadExternalLibrary (do NOT use import or require). Example usage:\n\nloadExternalLibrary({\n  globalVar: 'pdfjsLib',\n  url: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js',\n  onload: () => {\n    // Use window.pdfjsLib here\n  }\n});\nAlways check for the global variable before using the library. Do NOT hardcode library URLs or add script tags manually. NEVER use import or export statements in user code.\n\n- When using loadExternalLibrary, always provide the full cdnjs file URL (case-sensitive, e.g., https://cdnjs.cloudflare.com/ajax/libs/tone/15.1.5/Tone.js). Only use cdnjs for external libraries and prefer universal module definition builds.`;
+      const diffOnly = getDiffOnly();
+
+      // 1. Common system message
+      const systemMsgCommon = `You are AutoRegret, an AI code assistant for a live-editable JavaScript frontend app.\n\n- The app consists of the following files (see below), each shown as: // File: <name>\n<content>\n- The app is pure client-side, using only vanilla JavaScript (NO frameworks, NO Node.js, NO backend).\n- The app uses a virtual file system; files are loaded and executed via eval() in the browser.\n- The entry point is always App.init().\n- NEVER use ES module syntax (do NOT use 'import' or 'export' statements).\n- Only modify files marked as 'modifiable'.\n- NEVER invent new files, frameworks, or change the app structure.\n- If you add any persistent state (such as setInterval, setTimeout, or event listeners), you MUST also add an App.cleanup() function that clears all such state. When code is updated, App.cleanup() will be called before reloading. Always ensure that intervals, timeouts, and event listeners are properly removed in App.cleanup().\n- You are also given a list of user wishes (requests) in order. When the user asks to undo or modify a previous wish, use this history to determine the correct action.`;
+
+      // 2. Diff-based response instructions
+      const systemMsgDiff = `- When the user asks for a change, respond ONLY with a V4A patch in the following format:\n*** Begin Patch\n*** Update File: <filename>\n@@ <context>\n-<old line>\n+<new line>\n*** End Patch\n- The patch must be valid and minimal. Do not include explanations, commentary, or extra text—ONLY the patch.\n- Only ONE file per patch.\n- If the user request is ambiguous, ask for clarification.\n- Never change files that are not marked as modifiable.`;
+
+      // 3. Full file response instructions
+      const systemMsgFullFile = `- When the user asks for a change, respond ONLY with the full, updated content of the relevant file.\n- Respond in the format:\n// File: <filename>\n<full file content>\n- The VERY FIRST LINE of your response MUST be // File: <filename> (no commentary, no blank lines before).\n- Only ONE file per response.\n- Do NOT return diffs.\n- The file should be minimal, clean, and correct.\n- If the user request is ambiguous, ask for clarification.\n- Never change files that are not marked as modifiable.\n- Do NOT include explanations, commentary, or extra text—ONLY the file content.`;
+
+      // 4. No external libs instructions
+      const systemMsgNoExtLibs = `- IMPORTANT: You MUST NOT use any external JavaScript libraries, CDN scripts, or load any code from the internet. Only use code that is already present in the app files. Do NOT add script tags or reference any external URLs.`;
+
+      // 5. External libs instructions
+      const systemMsgExtLibs = `- If a user wish requires a new JavaScript library, you MUST use the global function loadExternalLibrary (do NOT use import or require). Example usage:\n\nloadExternalLibrary({\n  globalVar: 'pdfjsLib',\n  url: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js',\n  onload: () => {\n    // Use window.pdfjsLib here\n  }\n});\nAlways check for the global variable before using the library. Do NOT hardcode library URLs or add script tags manually. NEVER use import or export statements in user code.\n\n- When using loadExternalLibrary, always provide the full cdnjs file URL (case-sensitive, e.g., https://cdnjs.cloudflare.com/ajax/libs/tone/15.1.5/Tone.js). Only use cdnjs for external libraries and prefer universal module definition builds.`;
+
+      // Compose system prompt
+      let systemPrompt = systemMsgCommon + '\n\n';
+      if (diffOnly) {
+        systemPrompt += systemMsgDiff + '\n\n';
       } else {
-        systemPrompt = `${systemPromptCommon}\n\n- IMPORTANT: You MUST NOT use any external JavaScript libraries, CDN scripts, or load any code from the internet. Only use code that is already present in the app files. Do NOT add script tags or reference any external URLs.`;
+        systemPrompt += systemMsgFullFile + '\n\n';
       }
-      const userPrompt = `User wishes so far:\n${wishHistory}\n\nHere are all modifiable files in the app:\n\n${context}\n\nUser request: ${text}\n\nINSTRUCTIONS: Respond ONLY with the full, updated content of the relevant file. Do not include explanations or commentary. Respond in the format:\n// File: <filename>\n<full file content>\nThe very first line of your response MUST be // File: <filename>. Only one file per response.`;
+      if (allowExternalLibs) {
+        systemPrompt += systemMsgExtLibs;
+      } else {
+        systemPrompt += systemMsgNoExtLibs;
+      }
+
+      const userPrompt = `User wishes so far:\n${wishHistory}\n\nHere are all modifiable files in the app:\n\n${context}\n\nUser request: ${text}`;
       const messages = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ];
       const response = await sendPrompt('', messages);
+      console.log('[AutoRegret] GPT response:', response);
       // Try to extract file name and content from response (robust to whitespace)
       const match = response.match(/^\s*\/\/\s*File:\s*([\w.\-\/]+)\s*\n([\s\S]*)$/m);
       const promptHistory = { systemPrompt, userPrompt, gptOutput: response };
-      if (match) {
+      if (isV4APatch(response)) {
+        console.log('[AutoRegret] Handling V4A patch response');
+        try {
+          await applyPatchToFS(response);
+          chatHistory.push({ role: 'assistant', content: response, fileName: '[patch]', promptHistory });
+          if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
+          renderMessages();
+          chatPlaceholder.textContent = 'Patch applied!';
+        } catch (e) {
+          console.error('[AutoRegret] Patch error:', e);
+          chatHistory.push({ role: 'assistant', content: response, promptHistory, error: e.message });
+          renderMessages();
+          chatPlaceholder.textContent = 'Patch error: ' + e.message;
+        }
+      } else if (match) {
+        console.log('[AutoRegret] Handling full file response');
         const fileName = match[1].trim();
         const fileContent = match[2];
         const msgObj = { role: 'assistant', content: fileContent, fileName, promptHistory };
@@ -392,6 +517,7 @@ export function renderChat(container, opts) {
           }, 0);
         }
       } else {
+        console.log('[AutoRegret] Unrecognized GPT response format');
         chatHistory.push({ role: 'assistant', content: response, promptHistory });
         // Persist chatHistory
         try {
@@ -401,6 +527,7 @@ export function renderChat(container, opts) {
       renderMessages();
       chatPlaceholder.textContent = 'Type or record what you want this website to self-modify.';
     } catch (e) {
+      console.error('[AutoRegret] sendBtn error:', e);
       chatPlaceholder.textContent = 'Error: ' + e.message;
       if (/401|unauthorized|invalid api key|invalid authentication/i.test(e.message)) {
         chatPlaceholder.style.color = '#b31d28'; // red

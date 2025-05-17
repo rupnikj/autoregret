@@ -36,6 +36,14 @@ function setAllowExternalLibs(val) {
   localStorage.setItem('autoregret_allow_external_libs', !!val);
 }
 
+function getDiffOnly() {
+  const val = localStorage.getItem('autoregret_diff_only');
+  return val === 'true';
+}
+function setDiffOnly(val) {
+  localStorage.setItem('autoregret_diff_only', !!val);
+}
+
 export function initPanel() {
   if (document.getElementById('autoregret-shadow-host')) return;
   const host = document.createElement('div');
@@ -175,6 +183,7 @@ export function initPanel() {
     const currentYolo = getYoloAutoSend();
     const currentShowWelcomeBtn = getShowWelcomeButton();
     const currentAllowExternalLibs = getAllowExternalLibs();
+    const currentDiffOnly = getDiffOnly();
     settingsModal.innerHTML = `
       <div class="settings-modal" tabindex="0">
         <form class="settings-content" id="settings-form" autocomplete="off" style="display: flex; flex-direction: column; gap: 12px;">
@@ -203,6 +212,10 @@ export function initPanel() {
             <input type="checkbox" id="allow-external-libs-setting" ${currentAllowExternalLibs ? 'checked' : ''} style="width: 18px; height: 18px;" />
             <span style="font-size: 1em;">Allow external libraries</span>
           </label>
+          <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+            <input type="checkbox" id="diff-only-setting" ${currentDiffOnly ? 'checked' : ''} style="width: 18px; height: 18px;" />
+            <span style="font-size: 1em;">Request diff/patch only from GPT</span>
+          </label>
           <div style="display: flex; gap: 12px; margin-top: 16px;">
             <button type="submit" id="save-settings">Save Settings</button>
             <button type="button" id="close-settings">Cancel Settings</button>
@@ -229,12 +242,14 @@ export function initPanel() {
       const yoloAutoSend = shadow.getElementById('yolo-autosend-setting').checked;
       const showWelcomeBtn = shadow.getElementById('show-welcome-btn-setting').checked;
       const allowExternalLibs = shadow.getElementById('allow-external-libs-setting').checked;
+      const diffOnly = shadow.getElementById('diff-only-setting').checked;
       setApiKey(key);
       setModel(model);
       setAutoApply(autoApply);
       setYoloAutoSend(yoloAutoSend);
       setShowWelcomeButton(showWelcomeBtn);
       setAllowExternalLibs(allowExternalLibs);
+      setDiffOnly(diffOnly);
       settingsModal.style.display = 'none';
       // Re-render chat tab if it's active
       if (currentTab === 'chat') renderTab('chat');
@@ -262,7 +277,8 @@ export function initPanel() {
         'autoregret_yolo_autosend',
         'autoregret_openai_model',
         'autoregret_show_welcome_button',
-        'autoregret_allow_external_libs'
+        'autoregret_allow_external_libs',
+        'autoregret_diff_only'
       ];
       const localStorageState = {};
       for (const key of localKeys) {
@@ -364,7 +380,8 @@ export function initPanel() {
       autoApply: localStorage.getItem('autoregret_auto_apply'),
       yoloAutoSend: localStorage.getItem('autoregret_yolo_autosend'),
       showWelcome: localStorage.getItem('autoregret_show_welcome_button'),
-      allowExternalLibs: localStorage.getItem('autoregret_allow_external_libs')
+      allowExternalLibs: localStorage.getItem('autoregret_allow_external_libs'),
+      diffOnly: localStorage.getItem('autoregret_diff_only')
     };
     // Clear all localStorage
     localStorage.clear();
@@ -378,6 +395,7 @@ export function initPanel() {
     if (preservedSettings.yoloAutoSend) localStorage.setItem('autoregret_yolo_autosend', preservedSettings.yoloAutoSend);
     if (preservedSettings.showWelcome) localStorage.setItem('autoregret_show_welcome_button', preservedSettings.showWelcome);
     if (preservedSettings.allowExternalLibs) localStorage.setItem('autoregret_allow_external_libs', preservedSettings.allowExternalLibs);
+    if (preservedSettings.diffOnly) localStorage.setItem('autoregret_diff_only', preservedSettings.diffOnly);
     // Delete ALL IndexedDB databases (not just autoregret-files)
     if (indexedDB.databases) {
       // Modern browsers: enumerate and delete all
