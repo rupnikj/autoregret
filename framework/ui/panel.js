@@ -28,6 +28,14 @@ function setShowWelcomeButton(val) {
   localStorage.setItem('autoregret_show_welcome_button', !!val);
 }
 
+function getAllowExternalLibs() {
+  const val = localStorage.getItem('autoregret_allow_external_libs');
+  return val === 'true';
+}
+function setAllowExternalLibs(val) {
+  localStorage.setItem('autoregret_allow_external_libs', !!val);
+}
+
 export function initPanel() {
   if (document.getElementById('autoregret-shadow-host')) return;
   const host = document.createElement('div');
@@ -166,6 +174,7 @@ export function initPanel() {
     const currentAutoApply = getAutoApply();
     const currentYolo = getYoloAutoSend();
     const currentShowWelcomeBtn = getShowWelcomeButton();
+    const currentAllowExternalLibs = getAllowExternalLibs();
     settingsModal.innerHTML = `
       <div class="settings-modal" tabindex="0">
         <form class="settings-content" id="settings-form" autocomplete="off" style="display: flex; flex-direction: column; gap: 12px;">
@@ -189,6 +198,10 @@ export function initPanel() {
           <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
             <input type="checkbox" id="show-welcome-btn-setting" ${currentShowWelcomeBtn ? 'checked' : ''} style="width: 18px; height: 18px;" />
             <span style="font-size: 1em;">Show welcome button</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+            <input type="checkbox" id="allow-external-libs-setting" ${currentAllowExternalLibs ? 'checked' : ''} style="width: 18px; height: 18px;" />
+            <span style="font-size: 1em;">Allow external libraries</span>
           </label>
           <div style="display: flex; gap: 12px; margin-top: 16px;">
             <button type="submit" id="save-settings">Save Settings</button>
@@ -215,11 +228,13 @@ export function initPanel() {
       const autoApply = shadow.getElementById('auto-apply-setting').checked;
       const yoloAutoSend = shadow.getElementById('yolo-autosend-setting').checked;
       const showWelcomeBtn = shadow.getElementById('show-welcome-btn-setting').checked;
+      const allowExternalLibs = shadow.getElementById('allow-external-libs-setting').checked;
       setApiKey(key);
       setModel(model);
       setAutoApply(autoApply);
       setYoloAutoSend(yoloAutoSend);
       setShowWelcomeButton(showWelcomeBtn);
+      setAllowExternalLibs(allowExternalLibs);
       settingsModal.style.display = 'none';
       // Re-render chat tab if it's active
       if (currentTab === 'chat') renderTab('chat');
@@ -246,7 +261,8 @@ export function initPanel() {
         'autoregret_auto_apply',
         'autoregret_yolo_autosend',
         'autoregret_openai_model',
-        'autoregret_show_welcome_button'
+        'autoregret_show_welcome_button',
+        'autoregret_allow_external_libs'
       ];
       const localStorageState = {};
       for (const key of localKeys) {
@@ -347,7 +363,8 @@ export function initPanel() {
       model: localStorage.getItem('autoregret_openai_model'),
       autoApply: localStorage.getItem('autoregret_auto_apply'),
       yoloAutoSend: localStorage.getItem('autoregret_yolo_autosend'),
-      showWelcome: localStorage.getItem('autoregret_show_welcome_button')
+      showWelcome: localStorage.getItem('autoregret_show_welcome_button'),
+      allowExternalLibs: localStorage.getItem('autoregret_allow_external_libs')
     };
     // Clear all localStorage
     localStorage.clear();
@@ -360,6 +377,7 @@ export function initPanel() {
     if (preservedSettings.autoApply) localStorage.setItem('autoregret_auto_apply', preservedSettings.autoApply);
     if (preservedSettings.yoloAutoSend) localStorage.setItem('autoregret_yolo_autosend', preservedSettings.yoloAutoSend);
     if (preservedSettings.showWelcome) localStorage.setItem('autoregret_show_welcome_button', preservedSettings.showWelcome);
+    if (preservedSettings.allowExternalLibs) localStorage.setItem('autoregret_allow_external_libs', preservedSettings.allowExternalLibs);
     // Delete ALL IndexedDB databases (not just autoregret-files)
     if (indexedDB.databases) {
       // Modern browsers: enumerate and delete all
@@ -466,6 +484,10 @@ export function initPanel() {
       for (const file of cssFiles) {
         html += `  <style>\n/* File: ${file.name} */\n${file.content}\n</style>\n`;
       }
+      // Inline the loader before user JS
+      let loaderCode = await fetch('framework/core/libLoader.js').then(r => r.text());
+      loaderCode = loaderCode.replace(/export\s+(function|const|let|var|class)\s+/g, '$1 ');
+      html += `<script>\n// Inlined libLoader.js\n${loaderCode}\n</script>\n`;
       html += '</head>\n<body>\n  <div id="autoregret-root"></div>\n';
       // Inline JSON as JS variables
       for (const file of jsonFiles) {

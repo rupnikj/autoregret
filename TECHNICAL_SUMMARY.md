@@ -84,4 +84,33 @@ AutoRegret is a self-modifying, client-side web application that allows users to
 
 ---
 
+## External Library Loader (CDNJS Only)
+- The framework provides a generic `loadExternalLibrary` function (see `framework/core/libLoader.js`).
+- Usage: `loadExternalLibrary({ globalVar, name, version, file, onload })`.
+  - Example: `{ globalVar: 'pdfjsLib', name: 'pdf.js', version: '4.2.67', file: 'min.js', onload: ... }`
+- Only loads from cdnjs.cloudflare.com.
+- Persists loaded libraries in localStorage and auto-loads them on startup.
+- AI is prompted to use this loader for any new library needed by user wishes, never hardcoding library URLs in the framework.
+
+---
+
+## AI Prompt Adaptation
+- If a user wish requires a new JS library, use `loadExternalLibrary` by importing it directly from `../framework/core/libLoader.js`.
+- Only load from cdnjs (cdnjs.cloudflare.com).
+- Do not hardcode library URLs in the framework; always use the loader.
+- Example usage in user code:
+  ```js
+  loadExternalLibrary({
+    globalVar: 'pdfjsLib',
+    name: 'pdf.js',
+    version: '4.2.67',
+    file: 'min.js',
+    onload: () => {
+      // Use window.pdfjsLib here
+    }
+  });
+  ```
+
+---
+
 For more details, see `AutoRegret-Spec.md`. 

@@ -7,6 +7,10 @@ export async function loadUserApp() {
     if (window.App && typeof window.App.cleanup === 'function') {
       try { window.App.cleanup(); } catch (e) { console.warn('Cleanup error:', e); }
     }
+    // --- Ensure loader is available globally ---
+    let loaderCode = await fetch('framework/core/libLoader.js').then(r => r.text());
+    loaderCode = loaderCode.replace(/export\s+(function|const|let|var|class)\s+/g, '$1 ');
+    eval(loaderCode);
     const files = await listFiles();
     // Load all .js files and concatenate their contents
     const jsFiles = files.filter(f => f.name.endsWith('.js'));
