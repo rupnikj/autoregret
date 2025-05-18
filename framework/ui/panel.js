@@ -388,36 +388,23 @@ export function initPanel() {
     // Save State logic
     shadow.getElementById('export-state').onclick = async () => {
       // Gather localStorage (except API key)
-      const localKeys = [
-        'autoregret_chat_history',
-        'autoregret_user_wishes',
-        'autoregret_auto_apply',
-        'autoregret_yolo_autosend',
-        'autoregret_openai_model',
-        'autoregret_show_welcome_button',
-        'autoregret_allow_external_libs',
-        'autoregret_diff_only'
-      ];
+      // Also include any new localStorage keys that start with 'autoregret_'
       const localStorageState = {};
-      for (const key of localKeys) {
-        const val = localStorage.getItem(key);
-        if (val !== null) localStorageState[key] = val;
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('autoregret_') && key !== 'autoregret_openai_api_key') {
+          localStorageState[key] = localStorage.getItem(key);
+        }
       }
-      // Gather files and history from IndexedDB
-      const { listFiles, listHistory } = await import('../core/storage.js');
+      // Gather files and app-wide history from IndexedDB
+      const { listFiles, listAppHistory } = await import('../core/storage.js');
       const files = await listFiles();
-      // Gather all history for all files
-      let allHistory = [];
-      for (const file of files) {
-        const history = await listHistory(file.name);
-        allHistory = allHistory.concat(history);
-      }
+      const appHistory = await listAppHistory();
       // Build export object
       const exportObj = {
         version: 1,
         localStorage: localStorageState,
         files,
-        history: allHistory
+        appHistory
       };
       const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -462,24 +449,26 @@ export function initPanel() {
       // Restore files and history in IndexedDB
       const { initStorage, saveFile } = await import('../core/storage.js');
       await initStorage();
-      // Clear all files and history
+      // Clear all files and appHistory
       const dbReq = indexedDB.open('autoregret-files');
       dbReq.onsuccess = async (event) => {
         const db = event.target.result;
-        const tx = db.transaction(['files', 'history'], 'readwrite');
-        tx.objectStore('files').clear();
-        tx.objectStore('history').clear();
+        // Only clear stores that exist
+        const stores = Array.from(db.objectStoreNames);
+        const tx = db.transaction(stores, 'readwrite');
+        if (stores.includes('files')) tx.objectStore('files').clear();
+        if (stores.includes('appHistory')) tx.objectStore('appHistory').clear();
         tx.oncomplete = async () => {
           // Restore files
           for (const file of data.files) {
             await saveFile(file, 'import', 'imported');
           }
-          // Restore history
-          if (data.history && Array.isArray(data.history)) {
-            for (const h of data.history) {
+          // Restore app-wide history
+          if (data.appHistory && Array.isArray(data.appHistory) && stores.includes('appHistory')) {
+            for (const h of data.appHistory) {
               try {
-                const txh = db.transaction('history', 'readwrite');
-                txh.objectStore('history').add(h);
+                const txh = db.transaction('appHistory', 'readwrite');
+                txh.objectStore('appHistory').add(h);
               } catch (e) {}
             }
           }
