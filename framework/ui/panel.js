@@ -185,6 +185,18 @@ export function initPanel() {
           padding: 12px !important;
           font-size: 1em !important;
         }
+        #cm-save-bar {
+          position: sticky;
+          bottom: 0;
+          background: #fff;
+          z-index: 2;
+          padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+        #cm-editor {
+          min-height: 0 !important;
+          max-height: 60vh !important;
+          overflow-y: auto !important;
+        }
       }
     </style>
     <div id="panel-wrapper">
