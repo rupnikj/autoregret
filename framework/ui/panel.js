@@ -69,7 +69,17 @@ export function initPanel() {
       .tabs { display: flex; }
       .tab { flex: 1; padding: 8px; cursor: pointer; background: #eee; border-bottom: 2px solid transparent; text-align: center; }
       .tab.active { background: #fff; border-bottom: 2px solid #007aff; }
-      .tab-content { padding: 16px; background: #fff; height: 620px; overflow: auto; border-radius: 0 0 10px 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); border-bottom: 2px solid #dde3ec; }
+      .tab-content {
+        padding: 16px; background: #fff; height: 620px; overflow: auto; border-radius: 0 0 10px 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); border-bottom: 2px solid #dde3ec;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden !important;
+      }
+      .tab-content > * {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+      }
       .settings-modal {
         position: fixed; left: 0; top: 0; width: 100vw; height: 100vh;
         background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;
@@ -137,25 +147,14 @@ export function initPanel() {
           border-radius: 0 !important;
         }
         .tab-content {
-          /* Use small viewport height for content area */
-          height: calc(100svh - 120px) !important;
-          max-height: calc(100svh - 120px) !important;
+          display: flex !important;
+          flex-direction: column !important;
+          overflow: hidden !important;
+        }
+        .tab-content > * {
+          flex: 1 1 auto !important;
           min-height: 0 !important;
-          /* Fallback for browsers without svh support */
-          height: calc(100vh - 120px) !important;
-          max-height: calc(100vh - 120px) !important;
-          padding-bottom: 80px !important;
           overflow-y: auto !important;
-        }
-        /* Make chat input bar sticky at bottom */
-        #tab-content > div {
-          display: flex;
-          flex-direction: column;
-          height: 100%;
-        }
-        #tab-content textarea,
-        #tab-content button {
-          font-size: 1.1em !important;
         }
         /* Sticky input bar for chat */
         #tab-content [id^='chat-input'],
@@ -164,6 +163,7 @@ export function initPanel() {
           position: sticky !important;
           bottom: 0 !important;
           z-index: 2 !important;
+          background: #fff !important;
         }
         .settings-modal {
           align-items: flex-start !important;
