@@ -131,7 +131,7 @@ export function renderChat(container, opts) {
   }
   const { icon, title } = getCollapseIconAndTitle();
   container.innerHTML = `
-    <div style="display:flex; flex-direction:column; height:100%; position:relative;">
+    <div style="display:flex; flex-direction:column; height:100%; position:relative; padding-bottom:env(safe-area-inset-bottom, 0);">
       <button id="collapse-all-btn" title="${title}" style="position:absolute; top:8px; right:12px; z-index:10; background:rgba(255,255,255,0.95); border:1px solid #bbb; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.08); cursor:pointer; font-size:18px;">
         ${icon}
       </button>
