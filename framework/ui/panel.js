@@ -118,11 +118,14 @@ export function initPanel() {
           top: 0 !important;
           right: 0 !important;
           width: 100vw !important;
+          /* Use small viewport height for true fullscreen on mobile */
+          height: 100svh !important;
+          max-height: 100svh !important;
+          min-height: 100svh !important;
+          /* Fallback for browsers without svh support */
           height: 100vh !important;
-          min-width: unset !important;
-          min-height: unset !important;
-          max-width: 100vw !important;
           max-height: 100vh !important;
+          min-height: 100vh !important;
           border-radius: 0 !important;
         }
         #panel-wrapper {
@@ -132,10 +135,15 @@ export function initPanel() {
           border-radius: 0 !important;
         }
         .tab-content {
+          /* Use small viewport height for content area */
+          height: calc(100svh - 120px) !important;
+          max-height: calc(100svh - 120px) !important;
+          min-height: 0 !important;
+          /* Fallback for browsers without svh support */
           height: calc(100vh - 120px) !important;
           max-height: calc(100vh - 120px) !important;
-          overflow-y: auto !important;
           padding-bottom: 80px !important;
+          overflow-y: auto !important;
         }
         /* Make chat input bar sticky at bottom */
         #tab-content > div {
