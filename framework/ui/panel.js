@@ -447,8 +447,11 @@ export function initPanel() {
         }
       }
       // Restore files and history in IndexedDB
-      const { initStorage, saveFile } = await import('../core/storage.js');
+      const storageMod = await import('../core/storage.js');
+      const { initStorage, saveFile, setSuppressSnapshots } = storageMod;
       await initStorage();
+      // Suppress snapshots during import
+      setSuppressSnapshots(true);
       // Clear all files and appHistory
       const dbReq = indexedDB.open('autoregret-files');
       dbReq.onsuccess = async (event) => {
@@ -463,6 +466,8 @@ export function initPanel() {
           for (const file of data.files) {
             await saveFile(file, 'import', 'imported');
           }
+          // Re-enable snapshots
+          setSuppressSnapshots(false);
           // Restore app-wide history
           if (data.appHistory && Array.isArray(data.appHistory) && stores.includes('appHistory')) {
             for (const h of data.appHistory) {
