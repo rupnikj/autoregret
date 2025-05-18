@@ -136,8 +136,8 @@ export function renderChat(container, opts) {
         ${icon}
       </button>
       <div id="chat-apikey-warning" style="display:none; color:#b31d28; background:#fff3cd; border:1px solid #ffeeba; border-radius:4px; padding:8px; margin-bottom:8px; font-size:14px;"></div>
-      <div id="chat-messages" style="flex:1; overflow:auto; margin-bottom:8px; background:#f9f9f9; padding:8px; border-radius:6px; min-height:60px;"></div>
-      <div id="chat-input-bar" style="display:flex; flex-direction:column; gap:2px; align-items:stretch;">
+      <div id="chat-messages" style="flex:1 1 auto; overflow:auto; margin-bottom:0; background:#f9f9f9; padding:8px; border-radius:6px; min-height:60px;"></div>
+      <div id="chat-input-bar" style="display:flex; flex-direction:column; gap:2px; align-items:stretch; min-height:70px;">
         <div style="display:flex; gap:8px; align-items:center;">
           <textarea id="chat-input"
             rows="1"
