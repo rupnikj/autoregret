@@ -179,4 +179,8 @@ async function getAppHistoryById(id) {
     req.onsuccess = () => resolve(req.result);
     req.onerror = (e) => reject(e);
   });
+}
+
+export function setSuppressSnapshots(val) {
+  suppressSnapshots = !!val;
 } 
