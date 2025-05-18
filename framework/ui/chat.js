@@ -1,5 +1,5 @@
 import { sendPrompt, getApiKey } from '../core/gpt.js';
-import { listFiles, loadFile, saveFile, listHistory, deleteHistoryEntry } from '../core/storage.js';
+import { listFiles, loadFile, saveFile } from '../core/storage.js';
 import { previewDiff } from '../core/diffEngine.js';
 import { applyV4APatch, V4APatchError } from '../core/v4aPatch.js';
 
@@ -361,15 +361,13 @@ export function renderChat(container, opts) {
           }
           const prevContent = prevFile.content;
           await saveFile({ ...prevFile, content: msg.content }, 'wish', msg.promptHistory?.wish || userWishes[userWishes.length - 1] || '');
-          const history = await listHistory(fileName);
-          const luckyHistoryId = history.length ? history[0].id : null;
-          msg.luckyState = { prevContent, luckyHistoryId };
+          msg.luckyState = { prevContent };
           if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
           renderMessages();
           chatPlaceholder.textContent = 'Lucky patch applied!';
         } else {
           // Revert: restore previous content and delete lucky version from history
-          const { prevContent, luckyHistoryId } = msg.luckyState;
+          const { prevContent } = msg.luckyState;
           const fileName = msg.fileName;
           const file = await loadFile(fileName);
           if (!file) {
@@ -377,7 +375,6 @@ export function renderChat(container, opts) {
             return;
           }
           await saveFile({ ...file, content: prevContent }, 'wish', msg.promptHistory?.wish || userWishes[userWishes.length - 1] || '');
-          if (luckyHistoryId) await deleteHistoryEntry(luckyHistoryId);
           if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
           delete msg.luckyState;
           renderMessages();
@@ -516,9 +513,7 @@ export function renderChat(container, opts) {
               if (prevFile) {
                 const prevContent = prevFile.content;
                 await saveFile({ ...prevFile, content: fileContent }, 'wish', text);
-                const history = await listHistory(fileName);
-                const luckyHistoryId = history.length ? history[0].id : null;
-                msgObj.luckyState = { prevContent, luckyHistoryId };
+                msgObj.luckyState = { prevContent };
                 if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
                 renderMessages();
                 chatPlaceholder.textContent = 'Lucky patch auto-applied!';
