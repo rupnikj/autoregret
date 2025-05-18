@@ -137,19 +137,17 @@ export function renderChat(container, opts) {
       </button>
       <div id="chat-apikey-warning" style="display:none; color:#b31d28; background:#fff3cd; border:1px solid #ffeeba; border-radius:4px; padding:8px; margin-bottom:8px; font-size:14px;"></div>
       <div id="chat-messages" style="flex:1; overflow:auto; margin-bottom:8px; background:#f9f9f9; padding:8px; border-radius:6px; min-height:60px;"></div>
-      <div id="chat-input-bar" style="display:flex; flex-direction:column; gap:2px; align-items:stretch;">
-        <div style="display:flex; gap:8px; align-items:center;">
-          <textarea id="chat-input"
-            rows="1"
-            style="flex:1; height:48px; box-sizing:border-box; border-radius:8px; padding:12px 14px; font-size:14px; border:1px solid #bbb; resize:none;"
-            placeholder="Ask AutoRegret..."></textarea>
-          <button id="chat-send"
-            style="height:48px; min-width:72px; box-sizing:border-box; border-radius:8px; font-size:14px; border:1px solid #bbb; background:#f7faff; cursor:pointer; transition:background 0.2s;">
-            Send
-          </button>
-        </div>
-        <div id="chat-placeholder" style="margin-top:2px; color:#aaa; font-size:13px; min-height:18px;">Type or record what you want this website to self-modify.</div>
+      <div id="chat-input-bar" style="display:flex; gap:8px; align-items:center;">
+        <textarea id="chat-input"
+          rows="1"
+          style="flex:1; height:48px; box-sizing:border-box; border-radius:8px; padding:12px 14px; font-size:14px; border:1px solid #bbb; resize:none;"
+          placeholder="Ask AutoRegret..."></textarea>
+        <button id="chat-send"
+          style="height:48px; min-width:72px; box-sizing:border-box; border-radius:8px; font-size:14px; border:1px solid #bbb; background:#f7faff; cursor:pointer; transition:background 0.2s;">
+          Send
+        </button>
       </div>
+      <div id="chat-placeholder" style="margin-top:4px; color:#aaa; font-size:13px;">Type or record what you want this website to self-modify.</div>
     </div>
   `;
   const warningDiv = container.querySelector('#chat-apikey-warning');
