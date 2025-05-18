@@ -553,22 +553,23 @@ export function renderChat(container, opts) {
       const promptHistory = { systemPrompt, userPrompt, gptOutput: response };
       if (isV4APatch(response)) {
         console.log('[AutoRegret] Handling V4A patch response');
+        const patchFileMatch = response.match(/\*\*\* Update File: ([^\n]+)/);
+        const patchFileName = patchFileMatch ? patchFileMatch[1].trim() : '[patch]';
+        let error = undefined;
         try {
           await applyPatchToFS(response);
-          const patchFileMatch = response.match(/\*\*\* Update File: ([^\n]+)/);
-          const patchFileName = patchFileMatch ? patchFileMatch[1].trim() : '[patch]';
-          chatHistory.push({ role: 'assistant', content: response, fileName: patchFileName, promptHistory });
           if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
-          renderMessages();
           chatPlaceholder.textContent = 'Patch applied!';
         } catch (e) {
           console.error('[AutoRegret] Patch error:', e);
-          const patchFileMatch = response.match(/\*\*\* Update File: ([^\n]+)/);
-          const patchFileName = patchFileMatch ? patchFileMatch[1].trim() : '[patch]';
-          chatHistory.push({ role: 'assistant', content: response, fileName: patchFileName, promptHistory, error: e.message });
-          renderMessages();
+          error = e.message;
           chatPlaceholder.textContent = 'Patch error: ' + e.message;
         }
+        chatHistory.push({ role: 'assistant', content: response, fileName: patchFileName, promptHistory, ...(error ? { error } : {}) });
+        try {
+          localStorage.setItem('autoregret_chat_history', JSON.stringify(chatHistory));
+        } catch (e) {}
+        renderMessages();
       } else if (match) {
         console.log('[AutoRegret] Handling full file response');
         const fileName = match[1].trim();
