@@ -13,7 +13,7 @@ export async function renderHistory(container) {
         <label for="history-file-picker">File: </label>
         <select id="history-file-picker"></select>
       </div>
-      <div id="history-list" style="flex:1 1 0; min-height:0; max-height:500px; overflow:auto; border:1px solid #eee; border-radius:6px; background:#fafbfc; padding:8px;"></div>
+      <div id="history-list" style="flex:1 1 0; min-height:0; max-height:none; overflow:auto; border:1px solid #eee; border-radius:6px; background:#fafbfc; padding:8px;"></div>
       <div id="history-status" style="margin-top:8px; color:#888; font-size:12px;"></div>
     </div>
   `;

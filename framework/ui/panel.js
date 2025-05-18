@@ -111,6 +111,51 @@ export function initPanel() {
       .minimized .purge-btn {
         display: none !important;
       }
+      /* --- Mobile Responsive Styles --- */
+      @media (max-width: 600px) {
+        :host {
+          left: 0 !important;
+          top: 0 !important;
+          right: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          min-width: unset !important;
+          min-height: unset !important;
+          max-width: 100vw !important;
+          max-height: 100vh !important;
+          border-radius: 0 !important;
+        }
+        #panel-wrapper {
+          border-radius: 0 !important;
+        }
+        .panel-header {
+          border-radius: 0 !important;
+        }
+        .tab-content {
+          height: calc(100vh - 120px) !important;
+          max-height: calc(100vh - 120px) !important;
+          overflow-y: auto !important;
+          padding-bottom: 80px !important;
+        }
+        /* Make chat input bar sticky at bottom */
+        #tab-content > div {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+        }
+        #tab-content textarea,
+        #tab-content button {
+          font-size: 1.1em !important;
+        }
+        /* Sticky input bar for chat */
+        #tab-content [id^='chat-input'],
+        #tab-content [id^='chat-send'],
+        #tab-content [id^='chat-mic'] {
+          position: sticky !important;
+          bottom: 0 !important;
+          z-index: 2 !important;
+        }
+      }
     </style>
     <div id="panel-wrapper">
       <div class="panel-header">
