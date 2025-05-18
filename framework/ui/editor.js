@@ -12,7 +12,7 @@ export async function renderEditor(container) {
         <select id="cm-file-picker"></select>
       </div>
       <div id="cm-editor" style="flex:1 1 0; min-height:0; border:1px solid #eee; border-radius:6px; overflow:auto;"></div>
-      <div style="margin-top:8px; display:flex; align-items:center;">
+      <div id="cm-save-bar" style="margin-top:8px; display:flex; align-items:center;">
         <button id="cm-save">Save</button>
         <span id="cm-status" style="margin-left:12px; color:#888; font-size:12px;"></span>
       </div>
