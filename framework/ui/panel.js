@@ -78,6 +78,8 @@ export function initPanel() {
       .settings-content {
         background: #fff; padding: 24px; border-radius: 8px; min-width: 320px;
         box-shadow: 0 2px 16px rgba(0,0,0,0.2);
+        max-height: 80vh;
+        overflow-y: auto;
       }
       .settings-content label { display: block; margin-top: 12px; }
       .settings-content input { width: 100%; margin-top: 4px; padding: 6px; }
@@ -162,6 +164,26 @@ export function initPanel() {
           position: sticky !important;
           bottom: 0 !important;
           z-index: 2 !important;
+        }
+        .settings-modal {
+          align-items: flex-start !important;
+          justify-content: center !important;
+          height: 100svh !important;
+          min-height: 100svh !important;
+          max-height: 100svh !important;
+          /* fallback */
+          height: 100vh !important;
+          min-height: 100vh !important;
+          max-height: 100vh !important;
+        }
+        .settings-content {
+          width: 98vw !important;
+          min-width: unset !important;
+          max-width: 100vw !important;
+          max-height: 95svh !important;
+          overflow-y: auto !important;
+          padding: 12px !important;
+          font-size: 1em !important;
         }
       }
     </style>
