@@ -207,6 +207,13 @@ export function renderChat(container, opts) {
     }, 100);
   });
 
+  // --- Scroll chat to bottom on input focus (mobile keyboard show) ---
+  input.addEventListener('focus', () => {
+    setTimeout(() => {
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }, 300); // Delay to allow keyboard to appear and layout to settle
+  });
+
   // --- Voice recording logic ---
   async function startRecording() {
     if (isRecording) return;
