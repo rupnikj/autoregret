@@ -142,7 +142,7 @@ export async function restoreHistory(fileName, historyId) {
     modifiable: entry.modifiable,
     framework: entry.framework,
     lastModified: Date.now()
-  }, 'restore', historyId);
+  }, 'restore', `Restored to version ${historyId}`);
 }
 
 async function getHistoryById(id) {

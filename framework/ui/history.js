@@ -57,9 +57,21 @@ export async function renderHistory(container) {
     if (typeof entryCollapsed['current'] === 'undefined') entryCollapsed['current'] = allCollapsed;
     const isCurrentCollapsed = entryCollapsed['current'];
     if (current) {
+      // Show the action that led to the current version (from the most recent history entry)
+      let currentActionLabel = '';
+      if (history.length) {
+        const mostRecent = history[0];
+        if (mostRecent.action === 'wish' && mostRecent.wish) {
+          currentActionLabel = `<span style='color:#007aff;'>Wish:</span> ${escapeHTML(mostRecent.wish)}`;
+        } else if (mostRecent.action === 'restore' && mostRecent.wish) {
+          currentActionLabel = `<span style='color:#b31d28;'>Restored version</span> ${escapeHTML(mostRecent.wish)}`;
+        } else if (mostRecent.action === 'manual') {
+          currentActionLabel = `<span style='color:#a259e6;'>Manual edit</span>`;
+        }
+      }
       html += `
         <div style="margin-bottom:10px; border-bottom:1px solid #eee; padding-bottom:6px; position:relative; background:#f6fbff;">
-          <div><b>Current Version</b> <span style='background:#007aff;color:#fff;border-radius:4px;padding:2px 6px;font-size:11px;margin-left:8px;'>Current</span> <b>Saved:</b> ${current.lastModified ? new Date(current.lastModified).toLocaleString() : ''}</div>
+          <div><b>Current Version</b> <span style='background:#007aff;color:#fff;border-radius:4px;padding:2px 6px;font-size:11px;margin-left:8px;'>Current</span> <b>Saved:</b> ${current.lastModified ? new Date(current.lastModified).toLocaleString() : ''}${currentActionLabel ? ' <b>Action:</b> ' + currentActionLabel : ''}</div>
           <div style='display:flex; gap:8px; margin-top:4px;'>
             <button class="collapse-toggle-history" data-id="current">${isCurrentCollapsed ? 'Show' : 'Hide'}</button>
           </div>
@@ -68,14 +80,20 @@ export async function renderHistory(container) {
       `;
     }
     if (history.length) {
+      // For each history entry, show the action from the next entry (or 'Initial' for the oldest)
       html += history.map((h, idx) => {
         let actionLabel = '';
-        if (h.action === 'wish' && h.wish) {
-          actionLabel = `<span style='color:#007aff;'>Wish:</span> ${escapeHTML(h.wish)}`;
-        } else if (h.action === 'restore' && h.wish) {
-          actionLabel = `<span style='color:#b31d28;'>Restored version</span> ${h.wish}`;
-        } else if (h.action === 'manual') {
-          actionLabel = `<span style='color:#a259e6;'>Manual edit</span>`;
+        if (idx < history.length - 1) {
+          const next = history[idx + 1];
+          if (next.action === 'wish' && next.wish) {
+            actionLabel = `<span style='color:#007aff;'>Wish:</span> ${escapeHTML(next.wish)}`;
+          } else if (next.action === 'restore' && next.wish) {
+            actionLabel = `<span style='color:#b31d28;'>Restored version</span> ${escapeHTML(next.wish)}`;
+          } else if (next.action === 'manual') {
+            actionLabel = `<span style='color:#a259e6;'>Manual edit</span>`;
+          }
+        } else {
+          actionLabel = `<span style='color:#888;'>Initial</span>`;
         }
         if (typeof entryCollapsed[h.id] === 'undefined') entryCollapsed[h.id] = allCollapsed;
         const isCollapsed = entryCollapsed[h.id];
@@ -115,7 +133,7 @@ export async function renderHistory(container) {
   }
 
   function escapeHTML(str) {
-    return str.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   }
 
   filePicker.onchange = () => {
