@@ -160,6 +160,13 @@ export function renderChat(container, opts) {
     micBtn.innerHTML = MicIcon({ recording: isRecording });
   }
 
+  // --- Scroll input into view on blur (mobile keyboard hide) ---
+  input.addEventListener('blur', () => {
+    setTimeout(() => {
+      input.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 100);
+  });
+
   // --- Voice recording logic ---
   async function startRecording() {
     if (isRecording) return;
