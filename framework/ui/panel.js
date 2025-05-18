@@ -490,12 +490,18 @@ export function initPanel() {
       host.style.borderRadius = '10px';
       panelWrapper.classList.add('minimized');
       chevron.textContent = '▼';
+      // Allow pointer events only on the header title (chevron)
+      host.style.pointerEvents = 'none';
+      panelHeaderTitle.style.pointerEvents = 'auto';
     } else {
       host.style.height = '700px';
       host.style.width = '400px';
       host.style.borderRadius = '10px 10px 10px 10px';
       panelWrapper.classList.remove('minimized');
       chevron.textContent = '▲';
+      // Restore pointer events
+      host.style.pointerEvents = '';
+      panelHeaderTitle.style.pointerEvents = '';
     }
   };
 
