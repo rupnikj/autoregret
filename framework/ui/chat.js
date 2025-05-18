@@ -440,7 +440,8 @@ export function renderChat(container, opts) {
       const modFiles = files.filter(f => f.modifiable);
       const context = modFiles.map(f => `// File: ${f.name}\n${f.content}`).join('\n\n');
       // Add wish history to the prompt
-      const wishHistory = userWishes.map((wish, i) => `${i + 1}. ${wish}`).join('\n');
+      // Only include previous wishes, not the current one
+      const wishHistory = userWishes.slice(0, -1).map((wish, i) => `${i + 1}. ${wish}`).join('\n');
       const allowExternalLibs = localStorage.getItem('autoregret_allow_external_libs') === 'true';
       const diffOnly = getDiffOnly();
 
@@ -472,7 +473,7 @@ export function renderChat(container, opts) {
         systemPrompt += systemMsgNoExtLibs;
       }
 
-      const userPrompt = `User wishes so far:\n${wishHistory}\n\nHere are all modifiable files in the app:\n\n${context}\n\nUser request: ${text}`;
+      const userPrompt = `${wishHistory && wishHistory.length > 0 ? 'Prior user wishes:\n' + wishHistory + '\n\n' : ''}\n\nHere are all modifiable files in the app:\n\n${context}\n\nUser request: ${text}`;
       const messages = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
