@@ -65,22 +65,24 @@ async function applyPatchToFS(patchText) {
     console.error('[AutoRegret] Patch application error:', e);
     throw new V4APatchError(e.message);
   }
+  // Get the latest user wish
+  const latestWish = userWishes[userWishes.length - 1] || 'V4A patch update';
   // Apply updates
   for (const [name, content] of Object.entries(result.updatedFiles)) {
     console.log(`[AutoRegret] Updating file: ${name}`);
     const fileObj = filesArr.find(f => f.name === name);
-    if (fileObj) await saveFile({ ...fileObj, content }, 'patch', 'V4A patch update');
+    if (fileObj) await saveFile({ ...fileObj, content }, 'wish', latestWish);
   }
   // Add new files
   for (const [name, content] of Object.entries(result.addedFiles)) {
     console.log(`[AutoRegret] Adding file: ${name}`);
-    await saveFile({ name, content, modifiable: true, framework: 'vanilla', lastModified: Date.now() }, 'patch', 'V4A patch add');
+    await saveFile({ name, content, modifiable: true, framework: 'vanilla', lastModified: Date.now() }, 'wish', latestWish);
   }
   // Delete files
   for (const name of result.deletedFiles) {
     console.log(`[AutoRegret] Deleting file: ${name}`);
     const fileObj = filesArr.find(f => f.name === name);
-    if (fileObj) await saveFile({ ...fileObj, content: '', modifiable: false }, 'patch', 'V4A patch delete');
+    if (fileObj) await saveFile({ ...fileObj, content: '', modifiable: false }, 'wish', latestWish);
   }
 }
 
