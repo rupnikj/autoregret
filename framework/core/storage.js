@@ -1,20 +1,25 @@
 // Virtual File System Storage (IndexedDB wrapper)
 const DB_NAME = 'autoregret-files';
 const STORE_NAME = 'files';
-const HISTORY_STORE = 'history';
+const APP_HISTORY_STORE = 'appHistory';
 const DB_VERSION = 2;
 let db = null;
+let suppressSnapshots = false;
 
 export async function initStorage() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    const req = indexedDB.open(DB_NAME, DB_VERSION + 1); // bump version for new store
     req.onupgradeneeded = (e) => {
       db = e.target.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: 'name' });
       }
-      if (!db.objectStoreNames.contains(HISTORY_STORE)) {
-        db.createObjectStore(HISTORY_STORE, { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains(APP_HISTORY_STORE)) {
+        db.createObjectStore(APP_HISTORY_STORE, { keyPath: 'id', autoIncrement: true });
+      }
+      // Remove old per-file history store if present
+      if (db.objectStoreNames.contains('history')) {
+        db.deleteObjectStore('history');
       }
     };
     req.onsuccess = async (e) => {
@@ -35,6 +40,7 @@ function getShowWelcomeButton() {
 }
 
 async function seedInitialFiles() {
+  suppressSnapshots = true;
   // Decide which App.js to use based on the toggle
   const showWelcome = getShowWelcomeButton();
   const appFile = showWelcome ? { name: 'App.js', path: 'app/App.js', modifiable: true, framework: 'vanilla' }
@@ -60,6 +66,9 @@ async function seedInitialFiles() {
       // Ignore if fetch fails
     }
   }
+  suppressSnapshots = false;
+  // After all files are seeded, save version 0 app snapshot
+  await saveAppSnapshot('initial');
 }
 
 export async function listFiles() {
@@ -82,85 +91,92 @@ export async function loadFile(name) {
   });
 }
 
-export async function saveFile(fileObj, action = 'wish', wish = null) {
-  // Before saving, push the previous version to history
-  const prev = await loadFile(fileObj.name);
-  if (prev) {
-    await pushHistory({
-      name: prev.name,
-      content: prev.content,
-      modifiable: prev.modifiable,
-      framework: prev.framework,
-      lastModified: prev.lastModified,
-      timestamp: Date.now(),
-      action,
-      wish
-    });
-  }
+export async function saveFile(fileObj, action = 'wish') {
+  // Save the file
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     fileObj.lastModified = Date.now();
     const req = store.put(fileObj);
+    req.onsuccess = async () => {
+      // After saving, record a full app snapshot (unless suppressed)
+      if (!suppressSnapshots) {
+        await saveAppSnapshot(action);
+      }
+      resolve();
+    };
+    req.onerror = (e) => reject(e);
+  });
+}
+
+export async function saveAppSnapshot(action = 'wish') {
+  // Save a snapshot of all modifiable files, chat, wishes, action, timestamp
+  const files = await listFiles();
+  const modFiles = files.filter(f => f.modifiable);
+  let chatHistory = [];
+  let userWishes = [];
+  try { chatHistory = JSON.parse(localStorage.getItem('autoregret_chat_history') || '[]'); } catch (e) {}
+  try { userWishes = JSON.parse(localStorage.getItem('autoregret_user_wishes') || '[]'); } catch (e) {}
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(APP_HISTORY_STORE, 'readwrite');
+    const store = tx.objectStore(APP_HISTORY_STORE);
+    const req = store.add({
+      files: modFiles,
+      chatHistory,
+      userWishes,
+      action,
+      timestamp: Date.now()
+    });
     req.onsuccess = () => resolve();
     req.onerror = (e) => reject(e);
   });
 }
 
-async function pushHistory(historyObj) {
+export async function listAppHistory() {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(HISTORY_STORE, 'readwrite');
-    const store = tx.objectStore(HISTORY_STORE);
-    const req = store.add(historyObj);
-    req.onsuccess = () => resolve();
-    req.onerror = (e) => reject(e);
-  });
-}
-
-export async function listHistory(fileName) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(HISTORY_STORE, 'readonly');
-    const store = tx.objectStore(HISTORY_STORE);
+    const tx = db.transaction(APP_HISTORY_STORE, 'readonly');
+    const store = tx.objectStore(APP_HISTORY_STORE);
     const req = store.getAll();
     req.onsuccess = () => {
-      // Filter by file name and sort by timestamp desc
-      const filtered = req.result.filter(h => h.name === fileName).sort((a, b) => b.timestamp - a.timestamp);
+      // Sort by timestamp desc
+      const filtered = req.result.sort((a, b) => b.timestamp - a.timestamp);
       resolve(filtered);
     };
     req.onerror = (e) => reject(e);
   });
 }
 
-export async function restoreHistory(fileName, historyId) {
-  // Find the history entry
-  const entry = await getHistoryById(historyId);
-  if (!entry) throw new Error('History entry not found');
-  // Overwrite the file with this version
-  await saveFile({
-    name: entry.name,
-    content: entry.content,
-    modifiable: entry.modifiable,
-    framework: entry.framework,
-    lastModified: Date.now()
-  }, 'restore', `Restored to version ${historyId}`);
+export async function restoreAppHistory(historyId) {
+  // Find the app history entry
+  const entry = await getAppHistoryById(historyId);
+  if (!entry) throw new Error('App history entry not found');
+  // Overwrite all modifiable files in a single transaction, without triggering saveFile
+  const tx = db.transaction(STORE_NAME, 'readwrite');
+  const store = tx.objectStore(STORE_NAME);
+  for (const file of entry.files) {
+    store.put({ ...file, lastModified: Date.now() });
+  }
+  await new Promise((resolve, reject) => {
+    tx.oncomplete = resolve;
+    tx.onerror = reject;
+  });
+  // Restore chat history and wishes
+  if (entry.chatHistory) {
+    localStorage.setItem('autoregret_chat_history', JSON.stringify(entry.chatHistory));
+  }
+  if (entry.userWishes) {
+    localStorage.setItem('autoregret_user_wishes', JSON.stringify(entry.userWishes));
+  }
+  // After all files and state are restored, record a single restore snapshot
+  await saveAppSnapshot('restore');
 }
 
-async function getHistoryById(id) {
+async function getAppHistoryById(id) {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(HISTORY_STORE, 'readonly');
-    const store = tx.objectStore(HISTORY_STORE);
+    const tx = db.transaction(APP_HISTORY_STORE, 'readonly');
+    const store = tx.objectStore(APP_HISTORY_STORE);
     const req = store.get(id);
     req.onsuccess = () => resolve(req.result);
-    req.onerror = (e) => reject(e);
-  });
-}
-
-export async function deleteHistoryEntry(id) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(HISTORY_STORE, 'readwrite');
-    const store = tx.objectStore(HISTORY_STORE);
-    const req = store.delete(id);
-    req.onsuccess = () => resolve();
     req.onerror = (e) => reject(e);
   });
 } 

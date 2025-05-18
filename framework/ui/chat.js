@@ -1,5 +1,5 @@
 import { sendPrompt, getApiKey } from '../core/gpt.js';
-import { listFiles, loadFile, saveFile, listHistory, deleteHistoryEntry } from '../core/storage.js';
+import { listFiles, loadFile, saveFile } from '../core/storage.js';
 import { previewDiff } from '../core/diffEngine.js';
 import { applyV4APatch, V4APatchError } from '../core/v4aPatch.js';
 
@@ -16,6 +16,31 @@ try {
 } catch (e) { userWishes = []; }
 
 let allCollapsed = false;
+
+// --- Add pending state for manual apply mode ---
+let pendingUserMsg = null;
+let pendingAssistantMsg = null;
+
+// --- Helper to build system prompt ---
+function buildSystemPrompt({ diffOnly, allowExternalLibs }) {
+  const systemMsgCommon = `You are AutoRegret, an AI code assistant for a live-editable JavaScript frontend app.\n\n- The app consists of the following files (see below), each shown as: // File: <name>\n<content>\n- The app is pure client-side, using only vanilla JavaScript (NO frameworks, NO Node.js, NO backend).\n- The app uses a virtual file system; files are loaded and executed via eval() in the browser.\n- The entry point is always App.init().\n- NEVER use ES module syntax (do NOT use 'import' or 'export' statements).\n- Only modify files marked as 'modifiable'.\n- NEVER invent new files, frameworks, or change the app structure.\n- If you add any persistent state (such as setInterval, setTimeout, or event listeners), you MUST also add an App.cleanup() function that clears all such state. When code is updated, App.cleanup() will be called before reloading. Always ensure that intervals, timeouts, and event listeners are properly removed in App.cleanup().\n- You are also given a list of user wishes (requests) in order. When the user asks to undo or modify a previous wish, use this history to determine the correct action.`;
+  const systemMsgDiff = `- When the user asks for a change, respond ONLY with a V4A patch in the following format:\n*** Begin Patch\n*** Update File: <filename>\n@@ <context>\n-<old line>\n+<new line>\n*** End Patch\n- The patch must be valid and minimal. Do not include explanations, commentary, or extra text—ONLY the patch.\n- Only ONE file per patch.\n- Never change files that are not marked as modifiable.`;
+  const systemMsgFullFile = `- When the user asks for a change, respond ONLY with the full, updated content of the relevant file.\n- Respond in the format:\n// File: <filename>\n<full file content>\n- The VERY FIRST LINE of your response MUST be // File: <filename> (no commentary, no blank lines before).\n- Only ONE file per response.\n- Do NOT return diffs.\n- The file should be minimal, clean, and correct.\n- Never change files that are not marked as modifiable.\n- Do NOT include explanations, commentary, or extra text—ONLY the file content.`;
+  const systemMsgNoExtLibs = `- IMPORTANT: You MUST NOT use any external JavaScript libraries, CDN scripts, or load any code from the internet. Only use code that is already present in the app files. Do NOT add script tags or reference any external URLs.`;
+  const systemMsgExtLibs = `- If a user wish requires a new JavaScript library, you MUST use the global function loadExternalLibrary (do NOT use import or require). Example usage:\n\nloadExternalLibrary({\n  globalVar: 'pdfjsLib',\n  url: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js',\n  onload: () => {\n    // Use window.pdfjsLib here\n  }\n});\nAlways check for the global variable before using the library. Do NOT hardcode library URLs or add script tags manually. NEVER use import or export statements in user code.\n\n- When using loadExternalLibrary, always provide the full cdnjs file URL (case-sensitive, e.g., https://cdnjs.cloudflare.com/ajax/libs/tone/15.1.5/Tone.js). Only use cdnjs for external libraries and prefer universal module definition builds.`;
+  let systemPrompt = systemMsgCommon + '\n\n';
+  if (diffOnly) {
+    systemPrompt += systemMsgDiff + '\n\n';
+  } else {
+    systemPrompt += systemMsgFullFile + '\n\n';
+  }
+  if (allowExternalLibs) {
+    systemPrompt += systemMsgExtLibs;
+  } else {
+    systemPrompt += systemMsgNoExtLibs;
+  }
+  return systemPrompt;
+}
 
 function escapeHTML(str) {
   return str.replace(/[&<>"']/g, function (c) {
@@ -87,6 +112,17 @@ async function applyPatchToFS(patchText) {
 }
 
 export function renderChat(container, opts) {
+  // Always reload chat state from localStorage when rendering chat tab
+  try {
+    const savedChat = localStorage.getItem('autoregret_chat_history');
+    chatHistory = savedChat ? JSON.parse(savedChat) : [];
+  } catch (e) { chatHistory = []; }
+  try {
+    const savedWishes = localStorage.getItem('autoregret_user_wishes');
+    userWishes = savedWishes ? JSON.parse(savedWishes) : [];
+  } catch (e) { userWishes = []; }
+  pendingUserMsg = null;
+  pendingAssistantMsg = null;
   const autoApply = opts && typeof opts.autoApply !== 'undefined' ? opts.autoApply : true;
   function getCollapseIconAndTitle() {
     return allCollapsed
@@ -241,10 +277,8 @@ export function renderChat(container, opts) {
     html += chatHistory.map((msg, idx) => {
       if (msg.role === 'assistant' && msg.fileName && msg.content) {
         if (isV4APatch(msg.content)) {
-          console.log(`[AutoRegret] Rendering PATCH message at idx ${idx}:`, msg);
           // PATCH MODE: Show patch in code block, no Show/Hide Diff button
           const isCollapsed = msg.collapsed;
-          const isLucky = !!msg.luckyState;
           const promptDetails = msg.promptHistory ? `
             <div class='prompt-history-details' style='display:${msg.showPromptHistory ? 'block' : 'none'}; background:#f4f4f4; border-radius:4px; padding:6px; margin-top:4px;'>
               <b>System Prompt:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.systemPrompt)}</pre>
@@ -252,23 +286,18 @@ export function renderChat(container, opts) {
               <b>Raw GPT Output:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.gptOutput)}</pre>
             </div>` : '';
           return `<div style="margin-bottom:6px;">
-            <b>GPT (patch):</b>
+            <b>GPT (patch${msg.fileName && msg.fileName !== '[patch]' ? `: ${escapeHTML(msg.fileName)}` : ''}):</b>
             <div class="code-block" style="${isCollapsed ? 'display:none;' : ''}"><pre style='background:#eee; padding:6px; border-radius:4px; overflow:auto;'>${escapeHTML(msg.content)}</pre></div>
             <div style='display:flex; gap:8px; margin-top:4px;'>
-              <button class='chat-lucky' data-idx='${idx}'>${isLucky ? 'Revert' : "Apply"}</button>
               <button class="collapse-toggle" data-idx="${idx}">${isCollapsed ? 'Show' : 'Hide'}</button>
               ${msg.promptHistory ? `<button class='toggle-prompt-history' data-idx='${idx}'>${msg.showPromptHistory ? 'Hide' : 'Show'} Prompt Details</button>` : ''}
             </div>
             ${promptDetails}
           </div>`;
         } else {
-          console.log(`[AutoRegret] Rendering FILE message at idx ${idx}:`, msg);
           // FILE MODE: Show file, Show/Hide Diff button
-          // Per-message collapse state
           if (typeof msg.collapsed === 'undefined') msg.collapsed = allCollapsed;
           const isCollapsed = msg.collapsed;
-          const isLucky = !!msg.luckyState;
-          const showDiff = msg.showChatDiff;
           const promptDetails = msg.promptHistory ? `
             <div class='prompt-history-details' style='display:${msg.showPromptHistory ? 'block' : 'none'}; background:#f4f4f4; border-radius:4px; padding:6px; margin-top:4px;'>
               <b>System Prompt:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.systemPrompt)}</pre>
@@ -276,15 +305,12 @@ export function renderChat(container, opts) {
               <b>Raw GPT Output:</b><pre style='white-space:pre-wrap;'>${escapeHTML(msg.promptHistory.gptOutput)}</pre>
             </div>` : '';
           return `<div style="margin-bottom:6px;">
-            <b>GPT (file):</b>
+            <b>GPT (file${msg.fileName ? `: ${escapeHTML(msg.fileName)}` : ''}):</b>
             <div class="code-block" style="${isCollapsed ? 'display:none;' : ''}"><pre style='background:#eee; padding:6px; border-radius:4px; overflow:auto;'>${escapeHTML(msg.content)}</pre></div>
             <div style='display:flex; gap:8px; margin-top:4px;'>
-              <button class='chat-lucky' data-idx='${idx}'>${isLucky ? 'Revert' : "Apply"}</button>
-              <button class='chat-toggle-diff' data-idx='${idx}'>${showDiff ? 'Hide Diff' : 'Show Diff'}</button>
               <button class="collapse-toggle" data-idx="${idx}">${isCollapsed ? 'Show' : 'Hide'}</button>
               ${msg.promptHistory ? `<button class='toggle-prompt-history' data-idx='${idx}'>${msg.showPromptHistory ? 'Hide' : 'Show'} Prompt Details</button>` : ''}
             </div>
-            <pre class='chat-inline-diff' style='margin-top:6px; background:#f9f9f9; padding:8px; border-radius:6px; overflow:auto; max-height:180px; font-family:monospace; font-size:13px; white-space:pre-wrap; border:1px solid #e0e6ef;'>${showDiff ? 'Loading diff...' : ''}</pre>
             ${promptDetails}
           </div>`;
         }
@@ -304,6 +330,32 @@ export function renderChat(container, opts) {
       }
       return `<div style="margin-bottom:6px;"><b>${msg.role === 'user' ? 'You' : 'GPT'}:</b> ${escapeHTML(msg.content)}</div>`;
     }).join('');
+    // --- Render pending message if present and autoApply is false ---
+    if (!autoApply && pendingUserMsg && pendingAssistantMsg) {
+      html += `<div style="margin-bottom:6px;"><b>You (pending):</b> ${escapeHTML(pendingUserMsg.content)}</div>`;
+      if (pendingAssistantMsg.fileName && pendingAssistantMsg.content) {
+        // File or patch response
+        const isPatch = isV4APatch(pendingAssistantMsg.content);
+        html += `<div style="margin-bottom:6px;">
+          <b>GPT (pending ${isPatch ? 'patch' : 'file'}):</b>
+          <div class="code-block"><pre style='background:#eee; padding:6px; border-radius:4px; overflow:auto;'>${escapeHTML(pendingAssistantMsg.content)}</pre></div>
+          <div style='display:flex; gap:8px; margin-top:4px;'>
+            <button id='pending-apply-btn'>Apply</button>
+            <button id='pending-revert-btn'>Revert</button>
+            ${!isPatch ? `<button id='pending-diff-btn'>Show Diff</button>` : ''}
+          </div>
+          <pre id='pending-diff-area' style='margin-top:6px; background:#f9f9f9; padding:8px; border-radius:6px; overflow:auto; max-height:180px; font-family:monospace; font-size:13px; white-space:pre-wrap; border:1px solid #e0e6ef; display:none;'></pre>
+        </div>`;
+      } else {
+        // Non-file GPT output
+        html += `<div style="margin-bottom:6px;"><b>GPT (pending):</b> ${escapeHTML(pendingAssistantMsg.content)}
+          <div style='display:flex; gap:8px; margin-top:4px;'>
+            <button id='pending-apply-btn'>Apply</button>
+            <button id='pending-revert-btn'>Revert</button>
+          </div>
+        </div>`;
+      }
+    }
     messagesDiv.innerHTML = html;
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
     // Collapse/expand all logic
@@ -332,84 +384,6 @@ export function renderChat(container, opts) {
         renderMessages();
       };
     });
-    // Wire up "Apply"/"Revert" buttons
-    messagesDiv.querySelectorAll('.chat-lucky').forEach((btn, i) => {
-      btn.onclick = async () => {
-        const idx = parseInt(btn.getAttribute('data-idx'), 10);
-        const msg = chatHistory[idx];
-        if (!msg) return;
-        if (!msg.luckyState) {
-          if (isV4APatch(msg.content)) {
-            // Apply V4A patch
-            try {
-              await applyPatchToFS(msg.content);
-              msg.luckyState = { applied: true };
-              if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
-              renderMessages();
-              chatPlaceholder.textContent = 'Patch applied!';
-            } catch (e) {
-              chatPlaceholder.textContent = 'Patch error: ' + e.message;
-            }
-            return;
-          }
-          // Existing logic for full file
-          const fileName = msg.fileName;
-          const prevFile = await loadFile(fileName);
-          if (!prevFile) {
-            chatPlaceholder.textContent = 'File not found.';
-            return;
-          }
-          const prevContent = prevFile.content;
-          await saveFile({ ...prevFile, content: msg.content }, 'wish', msg.promptHistory?.wish || userWishes[userWishes.length - 1] || '');
-          const history = await listHistory(fileName);
-          const luckyHistoryId = history.length ? history[0].id : null;
-          msg.luckyState = { prevContent, luckyHistoryId };
-          if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
-          renderMessages();
-          chatPlaceholder.textContent = 'Lucky patch applied!';
-        } else {
-          // Revert: restore previous content and delete lucky version from history
-          const { prevContent, luckyHistoryId } = msg.luckyState;
-          const fileName = msg.fileName;
-          const file = await loadFile(fileName);
-          if (!file) {
-            chatPlaceholder.textContent = 'File not found.';
-            return;
-          }
-          await saveFile({ ...file, content: prevContent }, 'wish', msg.promptHistory?.wish || userWishes[userWishes.length - 1] || '');
-          if (luckyHistoryId) await deleteHistoryEntry(luckyHistoryId);
-          if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
-          delete msg.luckyState;
-          renderMessages();
-          chatPlaceholder.textContent = 'Reverted!';
-        }
-      };
-    });
-    // Wire up Show/Hide Diff buttons
-    messagesDiv.querySelectorAll('.chat-toggle-diff').forEach(btn => {
-      btn.onclick = async () => {
-        const idx = parseInt(btn.getAttribute('data-idx'), 10);
-        const msg = chatHistory[idx];
-        msg.showChatDiff = !msg.showChatDiff;
-        // Only re-render this message's diff area
-        const diffDivs = messagesDiv.querySelectorAll('.chat-inline-diff');
-        const diffDiv = diffDivs[Array.from(messagesDiv.querySelectorAll('.chat-toggle-diff')).indexOf(btn)];
-        if (msg.showChatDiff) {
-          if (diffDiv) diffDiv.innerHTML = 'Loading diff...';
-          const fileName = msg.fileName;
-          const newContent = msg.content;
-          const file = await loadFile(fileName);
-          const oldContent = file ? file.content : '';
-          const diff = await previewDiff(oldContent, newContent, fileName);
-          const diffHtml = colorizeDiff(diff);
-          if (diffDiv) diffDiv.innerHTML = diffHtml;
-        } else {
-          if (diffDiv) diffDiv.innerHTML = '';
-        }
-        // Update the button label
-        btn.textContent = msg.showChatDiff ? 'Hide Diff' : 'Show Diff';
-      };
-    });
     // Wire up prompt history toggles
     messagesDiv.querySelectorAll('.toggle-prompt-history').forEach(btn => {
       btn.onclick = () => {
@@ -418,11 +392,134 @@ export function renderChat(container, opts) {
         renderMessages();
       };
     });
+    // --- Wire up Apply/Revert for pending message ---
+    if (!autoApply && pendingUserMsg && pendingAssistantMsg) {
+      const applyBtn = messagesDiv.querySelector('#pending-apply-btn');
+      const revertBtn = messagesDiv.querySelector('#pending-revert-btn');
+      const diffBtn = messagesDiv.querySelector('#pending-diff-btn');
+      const diffArea = messagesDiv.querySelector('#pending-diff-area');
+      if (applyBtn) applyBtn.onclick = async () => {
+        // Commit to history and apply code if needed
+        chatHistory.push(pendingUserMsg);
+        userWishes.push(pendingUserMsg.content);
+        chatHistory.push(pendingAssistantMsg);
+        // Persist
+        try {
+          localStorage.setItem('autoregret_chat_history', JSON.stringify(chatHistory));
+          localStorage.setItem('autoregret_user_wishes', JSON.stringify(userWishes));
+        } catch (e) {}
+        // Apply code if file/patch
+        if (pendingAssistantMsg.fileName && pendingAssistantMsg.content) {
+          if (isV4APatch(pendingAssistantMsg.content)) {
+            try {
+              await applyPatchToFS(pendingAssistantMsg.content);
+              if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
+              chatPlaceholder.textContent = 'Patch applied!';
+            } catch (e) {
+              chatPlaceholder.textContent = 'Patch error: ' + e.message;
+            }
+          } else {
+            // Full file
+            const fileName = pendingAssistantMsg.fileName;
+            const prevFile = await loadFile(fileName);
+            if (prevFile) {
+              await saveFile({ ...prevFile, content: pendingAssistantMsg.content }, 'wish', pendingUserMsg.content);
+              if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
+              chatPlaceholder.textContent = 'Patch applied!';
+            }
+          }
+        }
+        // Clear pending state and re-enable input
+        pendingUserMsg = null;
+        pendingAssistantMsg = null;
+        input.disabled = false;
+        sendBtn.disabled = false;
+        renderMessages();
+      };
+      if (revertBtn) revertBtn.onclick = () => {
+        // Discard pending, do not commit
+        pendingUserMsg = null;
+        pendingAssistantMsg = null;
+        input.disabled = false;
+        sendBtn.disabled = false;
+        chatPlaceholder.textContent = 'Reverted!';
+        renderMessages();
+      };
+      if (diffBtn && diffArea) {
+        let showing = false;
+        diffBtn.onclick = async () => {
+          if (!showing) {
+            diffBtn.textContent = 'Hide Diff';
+            diffArea.style.display = '';
+            const fileName = pendingAssistantMsg.fileName;
+            const newContent = pendingAssistantMsg.content;
+            const file = await loadFile(fileName);
+            const oldContent = file ? file.content : '';
+            const diff = await previewDiff(oldContent, newContent, fileName);
+            diffArea.innerHTML = colorizeDiff(diff);
+            showing = true;
+          } else {
+            diffBtn.textContent = 'Show Diff';
+            diffArea.style.display = 'none';
+            showing = false;
+          }
+        };
+      }
+    }
   }
 
   sendBtn.onclick = async () => {
     const text = input.value.trim();
     if (!text) return;
+    // --- Manual mode: store as pending, do not commit ---
+    if (!autoApply) {
+      pendingUserMsg = { role: 'user', content: text };
+      input.value = '';
+      input.disabled = true;
+      sendBtn.disabled = true;
+      chatPlaceholder.textContent = 'Thinking...';
+      renderMessages();
+      try {
+        // Gather file context, wish history, etc (same as before)
+        const files = await listFiles();
+        const modFiles = files.filter(f => f.modifiable);
+        const context = modFiles.map(f => `// File: ${f.name}\n${f.content}`).join('\n\n');
+        const wishHistory = userWishes.map((wish, i) => `${i + 1}. ${wish}`).join('\n');
+        const allowExternalLibs = localStorage.getItem('autoregret_allow_external_libs') === 'true';
+        const diffOnly = getDiffOnly();
+        const systemPrompt = buildSystemPrompt({ diffOnly, allowExternalLibs });
+        const userPrompt = `${wishHistory && wishHistory.length > 0 ? 'Prior user wishes:\n' + wishHistory + '\n\n' : ''}\n\nHere are all modifiable files in the app:\n\n${context}\n\nUser request: ${text}`;
+        const messages = [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ];
+        const response = await sendPrompt('', messages);
+        const match = response.match(/^\s*\/\/\s*File:\s*([\w.\-\/]+)\s*\n([\s\S]*)$/m);
+        const promptHistory = { systemPrompt, userPrompt, gptOutput: response };
+        if (isV4APatch(response)) {
+          const patchFileMatch = response.match(/\*\*\* Update File: ([^\n]+)/);
+          const patchFileName = patchFileMatch ? patchFileMatch[1].trim() : '[patch]';
+          pendingAssistantMsg = { role: 'assistant', content: response, fileName: patchFileName, promptHistory };
+        } else if (match) {
+          const fileName = match[1].trim();
+          const fileContent = match[2];
+          pendingAssistantMsg = { role: 'assistant', content: fileContent, fileName, promptHistory };
+        } else {
+          pendingAssistantMsg = { role: 'assistant', content: response, promptHistory };
+        }
+        chatPlaceholder.textContent = 'Choose Apply or Revert.';
+        renderMessages();
+      } catch (e) {
+        chatPlaceholder.textContent = 'Error: ' + e.message;
+        input.disabled = false;
+        sendBtn.disabled = false;
+        pendingUserMsg = null;
+        pendingAssistantMsg = null;
+        renderMessages();
+      }
+      return;
+    }
+    // --- Auto-apply mode: original logic ---
     sendBtn.disabled = true;
     chatHistory.push({ role: 'user', content: text });
     userWishes.push(text);
@@ -440,45 +537,17 @@ export function renderChat(container, opts) {
       const modFiles = files.filter(f => f.modifiable);
       const context = modFiles.map(f => `// File: ${f.name}\n${f.content}`).join('\n\n');
       // Add wish history to the prompt
-      const wishHistory = userWishes.map((wish, i) => `${i + 1}. ${wish}`).join('\n');
+      // Only include previous wishes, not the current one
+      const wishHistory = userWishes.slice(0, -1).map((wish, i) => `${i + 1}. ${wish}`).join('\n');
       const allowExternalLibs = localStorage.getItem('autoregret_allow_external_libs') === 'true';
       const diffOnly = getDiffOnly();
-
-      // 1. Common system message
-      const systemMsgCommon = `You are AutoRegret, an AI code assistant for a live-editable JavaScript frontend app.\n\n- The app consists of the following files (see below), each shown as: // File: <name>\n<content>\n- The app is pure client-side, using only vanilla JavaScript (NO frameworks, NO Node.js, NO backend).\n- The app uses a virtual file system; files are loaded and executed via eval() in the browser.\n- The entry point is always App.init().\n- NEVER use ES module syntax (do NOT use 'import' or 'export' statements).\n- Only modify files marked as 'modifiable'.\n- NEVER invent new files, frameworks, or change the app structure.\n- If you add any persistent state (such as setInterval, setTimeout, or event listeners), you MUST also add an App.cleanup() function that clears all such state. When code is updated, App.cleanup() will be called before reloading. Always ensure that intervals, timeouts, and event listeners are properly removed in App.cleanup().\n- You are also given a list of user wishes (requests) in order. When the user asks to undo or modify a previous wish, use this history to determine the correct action.`;
-
-      // 2. Diff-based response instructions
-      const systemMsgDiff = `- When the user asks for a change, respond ONLY with a V4A patch in the following format:\n*** Begin Patch\n*** Update File: <filename>\n@@ <context>\n-<old line>\n+<new line>\n*** End Patch\n- The patch must be valid and minimal. Do not include explanations, commentary, or extra text—ONLY the patch.\n- Only ONE file per patch.\n- If the user request is ambiguous, ask for clarification.\n- Never change files that are not marked as modifiable.`;
-
-      // 3. Full file response instructions
-      const systemMsgFullFile = `- When the user asks for a change, respond ONLY with the full, updated content of the relevant file.\n- Respond in the format:\n// File: <filename>\n<full file content>\n- The VERY FIRST LINE of your response MUST be // File: <filename> (no commentary, no blank lines before).\n- Only ONE file per response.\n- Do NOT return diffs.\n- The file should be minimal, clean, and correct.\n- If the user request is ambiguous, ask for clarification.\n- Never change files that are not marked as modifiable.\n- Do NOT include explanations, commentary, or extra text—ONLY the file content.`;
-
-      // 4. No external libs instructions
-      const systemMsgNoExtLibs = `- IMPORTANT: You MUST NOT use any external JavaScript libraries, CDN scripts, or load any code from the internet. Only use code that is already present in the app files. Do NOT add script tags or reference any external URLs.`;
-
-      // 5. External libs instructions
-      const systemMsgExtLibs = `- If a user wish requires a new JavaScript library, you MUST use the global function loadExternalLibrary (do NOT use import or require). Example usage:\n\nloadExternalLibrary({\n  globalVar: 'pdfjsLib',\n  url: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js',\n  onload: () => {\n    // Use window.pdfjsLib here\n  }\n});\nAlways check for the global variable before using the library. Do NOT hardcode library URLs or add script tags manually. NEVER use import or export statements in user code.\n\n- When using loadExternalLibrary, always provide the full cdnjs file URL (case-sensitive, e.g., https://cdnjs.cloudflare.com/ajax/libs/tone/15.1.5/Tone.js). Only use cdnjs for external libraries and prefer universal module definition builds.`;
-
-      // Compose system prompt
-      let systemPrompt = systemMsgCommon + '\n\n';
-      if (diffOnly) {
-        systemPrompt += systemMsgDiff + '\n\n';
-      } else {
-        systemPrompt += systemMsgFullFile + '\n\n';
-      }
-      if (allowExternalLibs) {
-        systemPrompt += systemMsgExtLibs;
-      } else {
-        systemPrompt += systemMsgNoExtLibs;
-      }
-
-      const userPrompt = `User wishes so far:\n${wishHistory}\n\nHere are all modifiable files in the app:\n\n${context}\n\nUser request: ${text}`;
+      const systemPrompt = buildSystemPrompt({ diffOnly, allowExternalLibs });
+      const userPrompt = `${wishHistory && wishHistory.length > 0 ? 'Prior user wishes:\n' + wishHistory + '\n\n' : ''}\n\nHere are all modifiable files in the app:\n\n${context}\n\nUser request: ${text}`;
       const messages = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ];
       const response = await sendPrompt('', messages);
-      console.log('[AutoRegret] GPT response:', response);
       // Try to extract file name and content from response (robust to whitespace)
       const match = response.match(/^\s*\/\/\s*File:\s*([\w.\-\/]+)\s*\n([\s\S]*)$/m);
       const promptHistory = { systemPrompt, userPrompt, gptOutput: response };
@@ -486,13 +555,17 @@ export function renderChat(container, opts) {
         console.log('[AutoRegret] Handling V4A patch response');
         try {
           await applyPatchToFS(response);
-          chatHistory.push({ role: 'assistant', content: response, fileName: '[patch]', promptHistory });
+          const patchFileMatch = response.match(/\*\*\* Update File: ([^\n]+)/);
+          const patchFileName = patchFileMatch ? patchFileMatch[1].trim() : '[patch]';
+          chatHistory.push({ role: 'assistant', content: response, fileName: patchFileName, promptHistory });
           if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
           renderMessages();
           chatPlaceholder.textContent = 'Patch applied!';
         } catch (e) {
           console.error('[AutoRegret] Patch error:', e);
-          chatHistory.push({ role: 'assistant', content: response, promptHistory, error: e.message });
+          const patchFileMatch = response.match(/\*\*\* Update File: ([^\n]+)/);
+          const patchFileName = patchFileMatch ? patchFileMatch[1].trim() : '[patch]';
+          chatHistory.push({ role: 'assistant', content: response, fileName: patchFileName, promptHistory, error: e.message });
           renderMessages();
           chatPlaceholder.textContent = 'Patch error: ' + e.message;
         }
@@ -509,19 +582,13 @@ export function renderChat(container, opts) {
         // Auto-apply if enabled
         if (autoApply) {
           setTimeout(async () => {
-            // Only auto-apply if not already lucky
-            if (!msgObj.luckyState) {
-              const prevFile = await loadFile(fileName);
-              if (prevFile) {
-                const prevContent = prevFile.content;
-                await saveFile({ ...prevFile, content: fileContent }, 'wish', text);
-                const history = await listHistory(fileName);
-                const luckyHistoryId = history.length ? history[0].id : null;
-                msgObj.luckyState = { prevContent, luckyHistoryId };
-                if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
-                renderMessages();
-                chatPlaceholder.textContent = 'Lucky patch auto-applied!';
-              }
+            const prevFile = await loadFile(fileName);
+            if (prevFile) {
+              const prevContent = prevFile.content;
+              await saveFile({ ...prevFile, content: fileContent }, 'wish', text);
+              if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
+              renderMessages();
+              chatPlaceholder.textContent = 'Patch auto-applied!';
             }
           }, 0);
         }
