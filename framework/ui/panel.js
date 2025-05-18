@@ -197,6 +197,18 @@ export function initPanel() {
           max-height: 60vh !important;
           overflow-y: auto !important;
         }
+        #history-status-bar {
+          position: sticky;
+          bottom: 0;
+          background: #fff;
+          z-index: 2;
+          padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+        #history-list {
+          min-height: 0 !important;
+          max-height: 60vh !important;
+          overflow-y: auto !important;
+        }
       }
     </style>
     <div id="panel-wrapper">
