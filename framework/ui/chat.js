@@ -49,19 +49,19 @@ function escapeHTML(str) {
 }
 
 // Helper for record/stop icon
-function MicIcon({ recording }) {
+function MicIcon({ recording, size = 28 }) {
   if (recording) {
     // Stop icon (red square)
-    return `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="6" width="16" height="16" rx="4" fill="#b31d28"/></svg>`;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="6" width="16" height="16" rx="4" fill="#b31d28"/></svg>`;
   } else {
     // Record icon (red circle)
-    return `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="14" cy="14" r="8" fill="#b31d28"/></svg>`;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="14" cy="14" r="8" fill="#b31d28"/></svg>`;
   }
 }
 
 function getYoloAutoSend() {
   const val = localStorage.getItem('autoregret_yolo_autosend');
-  return val === null ? true : val === 'true';
+  return val === null ? false : val === 'true';
 }
 
 function getDiffOnly() {
@@ -172,15 +172,15 @@ export function renderChat(container, opts) {
   // Add mic button to the UI
   const micBtn = document.createElement('button');
   micBtn.id = 'chat-mic';
-  micBtn.style.height = '48px';
-  micBtn.style.width = '48px';
+  micBtn.style.height = '60px';
+  micBtn.style.width = '60px';
   micBtn.style.border = 'none';
   micBtn.style.background = 'transparent';
   micBtn.style.cursor = 'pointer';
   micBtn.style.display = 'flex';
   micBtn.style.alignItems = 'center';
   micBtn.style.justifyContent = 'center';
-  micBtn.innerHTML = MicIcon({ recording: false });
+  micBtn.innerHTML = MicIcon({ recording: false, size: 40 });
   sendBtn.parentNode.insertBefore(micBtn, sendBtn);
 
   // --- Voice recording state ---
@@ -188,14 +188,17 @@ export function renderChat(container, opts) {
   let audioChunks = [];
   let isRecording = false;
 
-  // --- Mic button handlers ---
-  micBtn.onmousedown = startRecording;
-  micBtn.onmouseup = stopRecording;
-  micBtn.ontouchstart = startRecording;
-  micBtn.ontouchend = stopRecording;
+  // --- Mic button handler (toggle) ---
+  micBtn.onclick = async () => {
+    if (!isRecording) {
+      await startRecording();
+    } else {
+      stopRecording();
+    }
+  };
 
   function updateMicIcon() {
-    micBtn.innerHTML = MicIcon({ recording: isRecording });
+    micBtn.innerHTML = MicIcon({ recording: isRecording, size: 40 });
   }
 
   // --- Scroll input into view on blur (mobile keyboard hide) ---
@@ -258,7 +261,6 @@ export function renderChat(container, opts) {
       if (data.text) {
         input.value = data.text;
         chatPlaceholder.textContent = 'Voice transcribed!';
-        input.focus();
         // YOLO: Only auto-send if enabled in settings
         if (getYoloAutoSend()) {
           sendBtn.click();
