@@ -338,12 +338,25 @@ export function initPanel() {
             <button type="button" id="import-state">Import App State</button>
           </div>
           <input type="file" id="import-state-file" accept="application/json" style="display:none" />
+          <div style="margin-top:18px; color:#888; font-size:0.95em; text-align:right;">
+            Deployed: <span id="deploy-timestamp"></span>
+          </div>
         </form>
       </div>
     `;
     settingsModal.style.display = '';
     const modalDiv = shadow.querySelector('.settings-modal');
     if (modalDiv) modalDiv.focus();
+    // Set deployment timestamp
+    const deploySpan = shadow.getElementById('deploy-timestamp');
+    if (deploySpan) {
+      let ts = (typeof VERSION !== 'undefined' ? VERSION : (window.VERSION || '__VERSION__'));
+      if (/^\d{13}$/.test(ts)) {
+        deploySpan.textContent = new Date(Number(ts)).toLocaleString();
+      } else {
+        deploySpan.textContent = ts;
+      }
+    }
     // Save handler
     shadow.getElementById('settings-form').onsubmit = (e) => {
       e.preventDefault();
