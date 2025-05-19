@@ -665,6 +665,4 @@ export function initPanel() {
       saveBtn.style.opacity = '';
     }
   };
-
-  // TODO: Make panel draggable
 } 
