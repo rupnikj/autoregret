@@ -14,7 +14,7 @@ function setAutoApply(val) {
 
 function getYoloAutoSend() {
   const val = localStorage.getItem('autoregret_yolo_autosend');
-  return val === null ? true : val === 'true';
+  return val === null ? false : val === 'true';
 }
 function setYoloAutoSend(val) {
   localStorage.setItem('autoregret_yolo_autosend', !!val);
@@ -387,13 +387,13 @@ export function initPanel() {
 
     // Save State logic
     shadow.getElementById('export-state').onclick = async () => {
-      // Gather localStorage (except API key)
-      // Also include any new localStorage keys that start with 'autoregret_'
+      // Only export chat history and user wishes, not settings
       const localStorageState = {};
-      for (const key of Object.keys(localStorage)) {
-        if (key.startsWith('autoregret_') && key !== 'autoregret_openai_api_key') {
-          localStorageState[key] = localStorage.getItem(key);
-        }
+      if (localStorage.getItem('autoregret_chat_history')) {
+        localStorageState['autoregret_chat_history'] = localStorage.getItem('autoregret_chat_history');
+      }
+      if (localStorage.getItem('autoregret_user_wishes')) {
+        localStorageState['autoregret_user_wishes'] = localStorage.getItem('autoregret_user_wishes');
       }
       // Gather files and app-wide history from IndexedDB
       const { listFiles, listAppHistory } = await import('../core/storage.js');
@@ -440,11 +440,12 @@ export function initPanel() {
         alert('Invalid state file format.');
         return;
       }
-      // Restore localStorage (except API key)
-      for (const [key, val] of Object.entries(data.localStorage)) {
-        if (key !== 'autoregret_openai_api_key') {
-          localStorage.setItem(key, val);
-        }
+      // Only restore chat history and user wishes, leave all other settings intact
+      if (data.localStorage['autoregret_chat_history']) {
+        localStorage.setItem('autoregret_chat_history', data.localStorage['autoregret_chat_history']);
+      }
+      if (data.localStorage['autoregret_user_wishes']) {
+        localStorage.setItem('autoregret_user_wishes', data.localStorage['autoregret_user_wishes']);
       }
       // Restore files and history in IndexedDB
       const storageMod = await import('../core/storage.js');
@@ -665,6 +666,4 @@ export function initPanel() {
       saveBtn.style.opacity = '';
     }
   };
-
-  // TODO: Make panel draggable
 } 
