@@ -3,6 +3,16 @@ import { listAppHistory, restoreAppHistory } from '../core/storage.js';
 // History Tab (placeholder)
 let allCollapsed = false;
 let entryCollapsed = {};
+
+export function escapeHTML(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export async function renderHistory(container) {
   container.innerHTML = `
     <div style="display:flex; flex-direction:column; height:100%; position:relative;">
@@ -106,15 +116,6 @@ export async function renderHistory(container) {
         if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
       };
     });
-  }
-
-  function escapeHTML(str) {
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
   }
 
   // Show app history on load

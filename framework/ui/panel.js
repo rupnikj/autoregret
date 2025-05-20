@@ -3,6 +3,7 @@ import { getApiKey, setApiKey, getModel, setModel } from '../core/gpt.js';
 import { renderEditor } from './editor.js';
 import { renderChat } from './chat.js';
 import { renderHistory } from './history.js';
+import { renderDebugPanel } from './debug.js';
 
 function getAutoApply() {
   const val = localStorage.getItem('autoregret_auto_apply');
@@ -239,6 +240,7 @@ export function initPanel() {
         <div class="tab" data-tab="editor">Editor</div>
         <div class="tab" data-tab="chat">Chat</div>
         <div class="tab" data-tab="history">History</div>
+        <div class="tab" data-tab="debug" title="Debug" style="width:36px;min-width:36px;max-width:36px;padding:0;display:flex;align-items:center;justify-content:center;"><span aria-label="Debug" role="img" style="font-size:18px;">🐞</span></div>
       </div>
       <div class="tab-content" id="tab-content"></div>
       <div id="settings-modal" style="display:none"></div>
@@ -271,6 +273,7 @@ export function initPanel() {
       }, 0);
     }
     else if (tabName === 'history') renderHistory(content);
+    else if (tabName === 'debug') renderDebugPanel(content);
   }
 
   tabs.forEach(tab => {

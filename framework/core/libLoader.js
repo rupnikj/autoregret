@@ -13,18 +13,28 @@ export function loadExternalLibrary({ url, globalVar, onload }) {
     return Promise.resolve();
   }
   if (!url) throw new Error('You must provide a full cdnjs file URL to loadExternalLibrary.');
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = url;
-    script.onload = () => {
-      if (onload) onload();
-      resolve();
-    };
-    script.onerror = () => {
-      reject(new Error(`Failed to load library: ${url}`));
-    };
-    document.head.appendChild(script);
-  });
+  // First, check if the URL is reachable and status is 200
+  return fetch(url, { method: 'HEAD' })
+    .then(resp => {
+      if (!resp.ok) {
+        throw new Error(`Failed to load library: ${url} (HTTP ${resp.status} ${resp.statusText})`);
+      }
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = url;
+        script.onload = () => {
+          if (onload) onload();
+          resolve();
+        };
+        script.onerror = () => {
+          reject(new Error(`Failed to load library: ${url} (script error after successful fetch)`));
+        };
+        document.head.appendChild(script);
+      });
+    })
+    .catch(err => {
+      return Promise.reject(err);
+    });
 }
 
 if (typeof window !== 'undefined') {
