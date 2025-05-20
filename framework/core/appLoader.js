@@ -26,6 +26,25 @@ export async function loadUserApp() {
       combined += `// ---- ${file.name} ----\n` + code + '\n';
     }
     console.log('[AutoRegret] Combined user app code:\n', combined);
+    // --- Acorn syntax check before eval ---
+    if (!window.acorn) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/acorn@8.11.3/dist/acorn.min.js';
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('Failed to load Acorn for syntax checking'));
+        document.head.appendChild(script);
+      });
+    }
+    try {
+      window.acorn.parse(combined, { ecmaVersion: 'latest' });
+    } catch (syntaxErr) {
+      let msg = syntaxErr.message || String(syntaxErr);
+      let line = syntaxErr.loc && syntaxErr.loc.line ? syntaxErr.loc.line : '?';
+      let col = syntaxErr.loc && syntaxErr.loc.column ? syntaxErr.loc.column : '?';
+      addDebugLog(`Syntax error in user code: ${msg}\nLine: ${line}  Col: ${col}`, 'error');
+      return;
+    }
     // Evaluate in global scope
     // eslint-disable-next-line no-eval
     eval(combined);
