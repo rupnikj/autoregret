@@ -34,6 +34,13 @@ export function addDebugLog(text, type = 'log') {
   const panel = document.querySelector('#autoregret-shadow-host');
   if (panel && panel.shadowRoot) {
     const tab = panel.shadowRoot.querySelector('.tab[data-tab="debug"]');
+    if (type === 'error' && tab) {
+      // Blip effect: add a class to the tab for 5 seconds
+      tab.classList.add('blip');
+      setTimeout(() => {
+        tab.classList.remove('blip');
+      }, 5000);
+    }
     if (tab && tab.classList.contains('active')) {
       const content = panel.shadowRoot.getElementById('tab-content');
       if (content) renderDebugPanel(content);

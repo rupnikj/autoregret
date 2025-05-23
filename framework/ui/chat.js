@@ -85,7 +85,7 @@ async function applyPatchToFS(patchText) {
   let result;
   try {
     result = applyV4APatch(patchText, files);
-    console.log('[AutoRegret] Patch application result:', result);
+    console.log('[AutoRegret] Patch application result:', JSON.stringify(result, null, 2));
   } catch (e) {
     console.error('[AutoRegret] Patch application error:', e);
     throw new V4APatchError(e.message);
@@ -274,7 +274,7 @@ export function renderChat(container, opts) {
   }
 
   function renderMessages() {
-    console.log('[AutoRegret] Rendering chat messages. chatHistory:', chatHistory);
+    console.log('[AutoRegret] Rendering chat messages. chatHistory:', JSON.stringify(chatHistory, null, 2));
     let html = '';
     html += chatHistory.map((msg, idx) => {
       if (msg.role === 'assistant' && msg.fileName && msg.content) {
