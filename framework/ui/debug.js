@@ -16,8 +16,47 @@ export function renderDebugPanel(container) {
   const logArea = container.querySelector('#debug-log-area');
   const clearBtn = container.querySelector('#debug-clear-btn');
   function renderLogs() {
-    logArea.innerHTML = debugLogs.map(entry => `<div style="white-space:pre-wrap; color:${entry.type==='error'?'#ff6b6b':'#eee'};">${escapeHTML(entry.text)}</div>`).join('');
+    logArea.innerHTML = debugLogs.map((entry, idx) => {
+      const isError = entry.type === 'error';
+      return `
+        <div style="
+          white-space:pre-wrap;
+          color:${isError ? '#ff6b6b' : '#eee'};
+          display:flex;
+          flex-direction:column;
+          align-items:flex-start;
+          gap:2px;
+          margin-bottom:4px;
+        ">
+          <span>${escapeHTML(entry.text)}</span>
+          ${
+            isError
+              ? `<button style="
+                  font-size:12px;
+                  padding:2px 8px;
+                  border-radius:4px;
+                  border:1px solid #ccc;
+                  background:#fff;
+                  cursor:pointer;
+                  margin-top:2px;
+                " data-askfix="${idx}">🤖&nbsp;🆘</button>`
+              : ''
+          }
+        </div>
+      `;
+    }).join('');
     logArea.scrollTop = logArea.scrollHeight;
+
+    // Wire up Ask for Fix buttons
+    logArea.querySelectorAll('button[data-askfix]').forEach(btn => {
+      btn.onclick = (e) => {
+        const idx = parseInt(btn.getAttribute('data-askfix'), 10);
+        const entry = debugLogs[idx];
+        if (entry && entry.type === 'error' && window.autoregretAskForFix) {
+          window.autoregretAskForFix(entry.text);
+        }
+      };
+    });
   }
   clearBtn.onclick = () => {
     debugLogs = [];
@@ -34,6 +73,13 @@ export function addDebugLog(text, type = 'log') {
   const panel = document.querySelector('#autoregret-shadow-host');
   if (panel && panel.shadowRoot) {
     const tab = panel.shadowRoot.querySelector('.tab[data-tab="debug"]');
+    if (type === 'error' && tab) {
+      // Blip effect: add a class to the tab for 5 seconds
+      tab.classList.add('blip');
+      setTimeout(() => {
+        tab.classList.remove('blip');
+      }, 5000);
+    }
     if (tab && tab.classList.contains('active')) {
       const content = panel.shadowRoot.getElementById('tab-content');
       if (content) renderDebugPanel(content);

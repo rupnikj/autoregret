@@ -223,6 +223,15 @@ export function initPanel() {
           overflow-y: auto !important;
         }
       }
+      .tab.blip {
+        animation: debug-blip 0.7s cubic-bezier(0.4,0,0.2,1) 0s 6 alternate;
+        background: #ffe5e5 !important;
+        border-bottom: 2px solid #ff6b6b !important;
+      }
+      @keyframes debug-blip {
+        0% { box-shadow: 0 0 0 0 #ff6b6b44; }
+        100% { box-shadow: 0 0 8px 4px #ff6b6b88; }
+      }
     </style>
     <div id="panel-wrapper">
       <div class="panel-header">
@@ -681,5 +690,23 @@ export function initPanel() {
       saveBtn.disabled = false;
       saveBtn.style.opacity = '';
     }
+  };
+
+  // Expose a function to switch to chat tab and set chat input
+  window.autoregretAskForFix = function(errorText) {
+    if (!host || !shadow) return;
+    // Switch to chat tab
+    setActiveTab('chat');
+    // Set chat input value
+    setTimeout(() => {
+      const content = shadow.getElementById('tab-content');
+      if (content) {
+        const input = content.querySelector('#chat-input');
+        if (input) {
+          input.value = `I got this runtime error: ${errorText}\nPlease suggest a fix.`;
+          input.focus();
+        }
+      }
+    }, 0);
   };
 } 
