@@ -8,7 +8,22 @@
  * @param {function} [options.onload] - Callback after load
  */
 export function loadExternalLibrary({ url, globalVar, onload }) {
+
+  const cacheSuccessful = (url, globalVar) => {
+    // Add to verified cache
+    let verified = [];
+    try {
+      const v = localStorage.getItem('autoregret_lib_verified');
+      if (v) verified = JSON.parse(v);
+    } catch (e) { }
+    if (!verified.find(v => v.url === url)) {
+      verified.push({ url, detectedGlobal: globalVar });
+      localStorage.setItem('autoregret_lib_verified', JSON.stringify(verified));
+    }
+  }
+
   if (window[globalVar]) {
+    cacheSuccessful(url, globalVar);
     if (onload) onload();
     return Promise.resolve();
   }
@@ -23,7 +38,10 @@ export function loadExternalLibrary({ url, globalVar, onload }) {
         const script = document.createElement('script');
         script.src = url;
         script.onload = () => {
-          if (onload) onload();
+          if (window[globalVar]) {
+            cacheSuccessful(url, globalVar);
+            if (onload) onload();
+          }
           resolve();
         };
         script.onerror = () => {

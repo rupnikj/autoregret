@@ -62,7 +62,7 @@ export function initPanel() {
   shadow.innerHTML = `
     <style>
       .panel-header { display: flex; align-items: center; justify-content: space-between; height: 48px; background: #f7faff; border-radius: 10px 10px 0 0; box-shadow: 0 2px 16px rgba(0,0,0,0.2), 0 8px 24px rgba(0,0,0,0.08); padding: 0 16px; border-bottom: 2px solid #dde3ec; font-weight: 600; font-size: 16px; letter-spacing: 0.5px; position: relative; z-index: 10; margin-bottom: 8px; }
-      .panel-header-title { color: #007aff; font-size: 16px; font-weight: 600; letter-spacing: 0.5px; }
+      .panel-header-title { color: #007aff; font-size: 16px; font-weight: 600; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
       .settings-btn, .purge-btn { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 18px; margin-left: 8px; box-shadow: 0 1px 2px #e0e6ef; transition: background 0.2s; position: static; }
       .settings-btn:hover, .purge-btn:hover { background: #f0f4fa; }
       .auto-apply-toggle { margin-left: 14px; display: inline-flex; align-items: center; font-size: 14px; user-select: none; }
@@ -233,10 +233,18 @@ export function initPanel() {
         0% { box-shadow: 0 0 0 0 #ff6b6b44; }
         100% { box-shadow: 0 0 8px 4px #ff6b6b88; }
       }
+      .autoregret-blink {
+        animation: autoregret-blink-color 1.2s ease-in-out infinite;
+      }
+      @keyframes autoregret-blink-color {
+        0% { color: #007aff; }
+        50% { color: #ffb300; }
+        100% { color: #007aff; }
+      }
     </style>
     <div id="panel-wrapper">
       <div class="panel-header">
-        <span class="panel-header-title" style="cursor:pointer; display:flex; align-items:center; gap:6px;" title="Minimize/Expand">
+        <span class="panel-header-title" id="autoregret-title" style="cursor:pointer; display:flex; align-items:center; gap:6px;" title="Minimize/Expand">
           AutoRegret
           <span id="minimize-chevron" style="font-size:18px; transition: transform 0.2s;">▲</span>
         </span>
@@ -527,6 +535,8 @@ export function initPanel() {
     // Remove chat and wishes history (redundant after clear, but kept for safety)
     localStorage.removeItem('autoregret_chat_history');
     localStorage.removeItem('autoregret_user_wishes');
+    // Remove verified library cache
+    localStorage.removeItem('autoregret_lib_verified');
     // Restore all settings
     if (preservedSettings.apiKey) localStorage.setItem('autoregret_openai_api_key', preservedSettings.apiKey);
     if (preservedSettings.model) localStorage.setItem('autoregret_openai_model', preservedSettings.model);
@@ -711,5 +721,19 @@ export function initPanel() {
         }
       }
     }, 0);
+  };
+
+  // --- Global thinking indicator logic (blink text) ---
+  const autoregretTitle = shadow.getElementById('autoregret-title');
+  window.autoregretThinking = false;
+  window.setAutoregretThinking = function (val) {
+    window.autoregretThinking = !!val;
+    if (autoregretTitle) {
+      if (val) {
+        autoregretTitle.classList.add('autoregret-blink');
+      } else {
+        autoregretTitle.classList.remove('autoregret-blink');
+      }
+    }
   };
 } 
