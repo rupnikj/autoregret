@@ -589,6 +589,7 @@ export function renderChat(container, opts) {
       input.disabled = true;
       sendBtn.disabled = true;
       chatPlaceholder.textContent = 'Thinking...';
+      if (window.setAutoregretThinking) window.setAutoregretThinking(true);
       renderMessages();
       try {
         // Gather file context, wish history, etc (same as before)
@@ -619,6 +620,7 @@ export function renderChat(container, opts) {
           pendingAssistantMsg = { role: 'assistant', content: response, promptHistory };
         }
         chatPlaceholder.textContent = 'Choose Apply or Revert.';
+        if (window.setAutoregretThinking) window.setAutoregretThinking(false);
         renderMessages();
       } catch (e) {
         chatPlaceholder.textContent = 'Error: ' + e.message;
@@ -626,12 +628,14 @@ export function renderChat(container, opts) {
         sendBtn.disabled = false;
         pendingUserMsg = null;
         pendingAssistantMsg = null;
+        if (window.setAutoregretThinking) window.setAutoregretThinking(false);
         renderMessages();
       }
       return;
     }
     // --- Auto-apply mode: original logic ---
     sendBtn.disabled = true;
+    if (window.setAutoregretThinking) window.setAutoregretThinking(true);
     chatHistory.push({ role: 'user', content: text });
     userWishes.push(text);
     // Persist chatHistory and userWishes
@@ -680,6 +684,7 @@ export function renderChat(container, opts) {
         try {
           localStorage.setItem('autoregret_chat_history', JSON.stringify(chatHistory));
         } catch (e) {}
+        if (window.setAutoregretThinking) window.setAutoregretThinking(false);
         renderMessages();
       } else if (match) {
         console.log('[AutoRegret] Handling full file response');
@@ -702,7 +707,10 @@ export function renderChat(container, opts) {
               renderMessages();
               chatPlaceholder.textContent = 'Patch auto-applied!';
             }
+            if (window.setAutoregretThinking) window.setAutoregretThinking(false);
           }, 0);
+        } else {
+          if (window.setAutoregretThinking) window.setAutoregretThinking(false);
         }
       } else {
         console.log('[AutoRegret] Unrecognized GPT response format');
@@ -711,6 +719,7 @@ export function renderChat(container, opts) {
         try {
           localStorage.setItem('autoregret_chat_history', JSON.stringify(chatHistory));
         } catch (e) {}
+        if (window.setAutoregretThinking) window.setAutoregretThinking(false);
       }
       renderMessages();
       chatPlaceholder.textContent = 'Type or record what you want this website to self-modify.';
@@ -722,6 +731,7 @@ export function renderChat(container, opts) {
       } else {
         chatPlaceholder.style.color = '#888'; // default
       }
+      if (window.setAutoregretThinking) window.setAutoregretThinking(false);
     }
     sendBtn.disabled = false;
   };
