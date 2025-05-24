@@ -156,6 +156,16 @@ export function renderChat(container, opts) {
   const sendBtn = container.querySelector('#chat-send');
   const chatPlaceholder = container.querySelector('#chat-placeholder');
 
+  // --- Restore chat input draft if present ---
+  const draftKey = 'autoregret_chat_input_draft';
+  const savedDraft = localStorage.getItem(draftKey);
+  if (savedDraft) input.value = savedDraft;
+
+  // Save draft on input
+  input.addEventListener('input', () => {
+    localStorage.setItem(draftKey, input.value);
+  });
+
   // Show warning if API key is not set
   const apiKey = getApiKey && getApiKey();
   if (!apiKey) {
@@ -436,6 +446,8 @@ export function renderChat(container, opts) {
         pendingAssistantMsg = null;
         input.disabled = false;
         sendBtn.disabled = false;
+        // --- Clear draft on apply ---
+        localStorage.removeItem(draftKey);
         renderMessages();
       };
       if (revertBtn) revertBtn.onclick = () => {
@@ -445,6 +457,8 @@ export function renderChat(container, opts) {
         input.disabled = false;
         sendBtn.disabled = false;
         chatPlaceholder.textContent = 'Reverted!';
+        // --- Clear draft on revert ---
+        localStorage.removeItem(draftKey);
         renderMessages();
       };
       if (diffBtn && diffArea) {
@@ -473,6 +487,8 @@ export function renderChat(container, opts) {
   sendBtn.onclick = async () => {
     const text = input.value.trim();
     if (!text) return;
+    // --- Clear draft on send ---
+    localStorage.removeItem(draftKey);
     // --- Manual mode: store as pending, do not commit ---
     if (!autoApply) {
       pendingUserMsg = { role: 'user', content: text };
