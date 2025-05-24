@@ -11,6 +11,7 @@ export function renderDebugPanel(container) {
         <button id="debug-clear-btn" style="font-size:14px;">Clear</button>
       </div>
       <div id="debug-log-area" style="flex:1 1 0; min-height:0; max-height:none; overflow:auto; background:#181818; color:#eee; font-family:monospace; font-size:13px; border-radius:6px; padding:8px; border:1px solid #222;"></div>
+      <div id="debug-status-bar" style="height:80px; color:#888; font-size:12px;"></div>
     </div>
   `;
   const logArea = container.querySelector('#debug-log-area');
