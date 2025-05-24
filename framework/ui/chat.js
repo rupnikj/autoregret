@@ -2,6 +2,7 @@ import { sendPrompt, getApiKey } from '../core/gpt.js';
 import { listFiles, loadFile, saveFile } from '../core/storage.js';
 import { previewDiff } from '../core/diffEngine.js';
 import { applyV4APatch, V4APatchError } from '../core/v4aPatch.js';
+import { searchLibraries, getLibraryMeta } from '../core/libDiscover.js';
 
 // Load chat history and wishes from localStorage if present
 let chatHistory = [];
@@ -140,11 +141,11 @@ export function renderChat(container, opts) {
       <div id="chat-input-bar" style="display:flex; gap:8px; align-items:center;">
         <textarea id="chat-input"
           rows="1"
-          style="flex:1; height:48px; box-sizing:border-box; border-radius:8px; padding:12px 14px; font-size:14px; border:1px solid #bbb; resize:none;"
+          style="flex:1; height:60px; box-sizing:border-box; border-radius:8px; padding:12px 14px; font-size:14px; border:1px solid #bbb; resize:none;"
           placeholder="Ask AutoRegret..."></textarea>
         <button id="chat-send"
-          style="height:48px; min-width:72px; box-sizing:border-box; border-radius:8px; font-size:14px; border:1px solid #bbb; background:#f7faff; cursor:pointer; transition:background 0.2s;">
-          Send
+          style="height:48px; min-width:40px; box-sizing:border-box; border-radius:8px; font-size:28px; border:none; background:#f7faff; cursor:pointer; transition:background 0.2s;">
+          🚀
         </button>
       </div>
       <div id="chat-placeholder" style="margin-top:4px; color:#aaa; font-size:13px;">Type or record what you want this website to self-modify.</div>
@@ -179,24 +180,41 @@ export function renderChat(container, opts) {
     sendBtn.disabled = false;
   }
 
-  // Add mic button to the UI
-  const micBtn = document.createElement('button');
-  micBtn.id = 'chat-mic';
-  micBtn.style.height = '60px';
-  micBtn.style.width = '60px';
-  micBtn.style.border = 'none';
-  micBtn.style.background = 'transparent';
-  micBtn.style.cursor = 'pointer';
-  micBtn.style.display = 'flex';
-  micBtn.style.alignItems = 'center';
-  micBtn.style.justifyContent = 'center';
-  micBtn.innerHTML = MicIcon({ recording: false, size: 40 });
-  sendBtn.parentNode.insertBefore(micBtn, sendBtn);
-
   // --- Voice recording state ---
   let mediaRecorder = null;
   let audioChunks = [];
   let isRecording = false;
+
+  // Add mic button to the UI
+  const micBtn = document.createElement('button');
+  micBtn.id = 'chat-mic';
+  micBtn.style.height = '60px';
+  micBtn.style.width = '40px';
+  micBtn.style.border = 'none';
+  micBtn.style.background = 'transparent';
+  micBtn.style.fontSize = '28px';
+  micBtn.style.cursor = 'pointer';
+  micBtn.style.display = 'flex';
+  micBtn.style.alignItems = 'center';
+  micBtn.style.justifyContent = 'center';
+  micBtn.textContent = isRecording ?  '🟥' : '🔴';
+  // micBtn.innerHTML = MicIcon({ recording: false, size: 40 });
+  sendBtn.parentNode.insertBefore(micBtn, sendBtn);
+
+  // Add Plan button to the UI
+  const planBtn = document.createElement('button');
+  planBtn.id = 'chat-plan';
+  planBtn.textContent = '📚';
+  planBtn.style.height = '48px';
+  planBtn.style.minWidth = '40px';
+  planBtn.style.borderRadius = '8px';
+  planBtn.style.fontSize = '28px';
+  planBtn.style.border = 'none';
+  planBtn.style.background = 'transparent';
+  planBtn.style.cursor = 'pointer';
+  // planBtn.style.marginLeft = '4px';
+  sendBtn.parentNode.insertBefore(planBtn, sendBtn);
+
 
   // --- Mic button handler (toggle) ---
   micBtn.onclick = async () => {
@@ -282,6 +300,81 @@ export function renderChat(container, opts) {
       chatPlaceholder.textContent = 'Error: ' + err.message;
     }
   }
+
+  // Plan button handler
+  planBtn.onclick = async () => {
+    planBtn.disabled = true;
+    chatPlaceholder.textContent = 'Planning...';
+    try {
+      // Gather context
+      const files = await listFiles();
+      const modFiles = files.filter(f => f.modifiable);
+      const code = modFiles.map(f => `// File: ${f.name}\n${f.content}`).join('\n\n');
+      const wishHistory = userWishes;
+      const currentWish = input.value.trim();
+      // Blacklist: store in localStorage or use empty for now
+      let blacklist = [];
+      try {
+        const bl = localStorage.getItem('autoregret_lib_blacklist');
+        if (bl) blacklist = JSON.parse(bl);
+      } catch (e) {}
+      // Verified cache: store in localStorage
+      let verified = [];
+      try {
+        const v = localStorage.getItem('autoregret_lib_verified');
+        if (v) verified = JSON.parse(v);
+      } catch (e) {}
+      // Dynamically import the assistant
+      const { runLibrarySearchAssistant } = await import('./libSearchAssistant.js');
+      const { candidates, rawResponse } = await runLibrarySearchAssistant({ code, wishHistory, currentWish, blacklist });
+      // Verification step: test each candidate
+      const { testLoadLibrary } = await import('../core/libDiscover.js');
+      let valid = [], failed = [];
+      for (const url of candidates) {
+        const already = verified.find(v => v.url === url);
+        if (already) {
+          valid.push(url);
+          continue;
+        }
+        try {
+          const result = await testLoadLibrary({ url });
+          if (result.success && !blacklist.includes(url)) {
+            valid.push(url);
+            verified.push({ url, detectedGlobal: result.detectedGlobal });
+          } else {
+            failed.push(url);
+          }
+        } catch (e) {
+          failed.push(url);
+        }
+      }
+      // Save updated verified list
+      localStorage.setItem('autoregret_lib_verified', JSON.stringify(verified));
+      // Update blacklist if any failed
+      if (failed.length > 0) {
+        const newBlacklist = Array.from(new Set([...blacklist, ...failed]));
+        localStorage.setItem('autoregret_lib_blacklist', JSON.stringify(newBlacklist));
+      }
+      // Show feedback to user
+      if (candidates.length === 0) {
+        chatPlaceholder.innerHTML = 'No external libraries needed.';
+      } else {
+        let html = '';
+        if (valid.length > 0) {
+          html += '<span style="color:green;">Valid libraries:</span><br>' + valid.map(u => `<span style='color:green;'>${u}</span>`).join('<br>') + '<br>';
+        }
+        if (failed.length > 0) {
+          html += '<span style="color:#b31d28;">Failed libraries (blacklisted, will retry if you click Plan again):</span><br>' + failed.map(u => `<span style='color:#b31d28;'>${u}</span>`).join('<br>') + '<br>';
+        }
+        chatPlaceholder.innerHTML = html;
+      }
+      // Optionally, store the candidates for use in the main chat loop
+      window.autoregretLibPlan = { candidates, valid, failed, rawResponse };
+    } catch (e) {
+      chatPlaceholder.textContent = 'Plan error: ' + e.message;
+    }
+    planBtn.disabled = false;
+  };
 
   function renderMessages() {
     // console.log('[AutoRegret] Rendering chat messages. chatHistory:', JSON.stringify(chatHistory, null, 2));
@@ -658,4 +751,21 @@ function colorizeDiff(diffText) {
       return `<div style='color:#24292e;'>${escapeHTML(line)}</div>`;
     }
   }).join('');
+}
+
+// Tool call handler for OpenAI function-calling (cdnjs tools)
+/**
+ * Handles a tool call from the LLM (OpenAI function-calling style).
+ * @param {Object} toolCall - { name: string, arguments: object }
+ * @returns {Promise<any>} Tool result
+ */
+export async function handleToolCall(toolCall) {
+  const { name, arguments: args } = toolCall;
+  if (name === 'searchLibraries') {
+    return await searchLibraries(args.keyword);
+  } else if (name === 'getLibraryMeta') {
+    return await getLibraryMeta(args.libName);
+  } else {
+    throw new Error('Unknown tool: ' + name);
+  }
 } 

@@ -48,4 +48,36 @@ export async function sendPrompt(prompt, messages = null) {
   }
   const data = await res.json();
   return data.choices?.[0]?.message?.content || '';
-} 
+}
+
+// Tool schemas for cdnjs library discovery (OpenAI function-calling)
+export const cdnjsTools = [
+  {
+    type: "function",
+    function: {
+      name: "searchLibraries",
+      description: "Search cdnjs for libraries matching a keyword.",
+      parameters: {
+        type: "object",
+        properties: {
+          keyword: { type: "string", description: "Search keyword" }
+        },
+        required: ["keyword"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getLibraryMeta",
+      description: "Get metadata (versions, files) for a cdnjs library.",
+      parameters: {
+        type: "object",
+        properties: {
+          libName: { type: "string", description: "Library name" }
+        },
+        required: ["libName"]
+      }
+    }
+  }
+]; 

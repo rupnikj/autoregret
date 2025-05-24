@@ -527,6 +527,8 @@ export function initPanel() {
     // Remove chat and wishes history (redundant after clear, but kept for safety)
     localStorage.removeItem('autoregret_chat_history');
     localStorage.removeItem('autoregret_user_wishes');
+    // Remove verified library cache
+    localStorage.removeItem('autoregret_lib_verified');
     // Restore all settings
     if (preservedSettings.apiKey) localStorage.setItem('autoregret_openai_api_key', preservedSettings.apiKey);
     if (preservedSettings.model) localStorage.setItem('autoregret_openai_model', preservedSettings.model);
