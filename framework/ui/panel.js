@@ -105,6 +105,7 @@ export function initPanel() {
         overflow: hidden !important;
         transition: height 0.2s, width 0.2s, border-radius 0.2s;
         border-radius: 10px !important;
+        box-shadow: none !important;
       }
       .minimized .tabs,
       .minimized .tab-content,
@@ -574,6 +575,7 @@ export function initPanel() {
       host.style.height = '48px';
       host.style.width = '140px';
       host.style.borderRadius = '10px';
+      host.style.boxShadow = 'none';
       panelWrapper.classList.add('minimized');
       chevron.textContent = '▼';
       // Allow pointer events only on the header title (chevron)
@@ -583,6 +585,7 @@ export function initPanel() {
       host.style.height = '700px';
       host.style.width = '400px';
       host.style.borderRadius = '10px 10px 10px 10px';
+      host.style.boxShadow = '0 2px 16px rgba(0,0,0,0.2), 0 8px 24px rgba(0,0,0,0.08)';
       panelWrapper.classList.remove('minimized');
       chevron.textContent = '▲';
       // Restore pointer events
