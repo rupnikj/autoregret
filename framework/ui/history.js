@@ -51,7 +51,12 @@ export async function renderHistory(container) {
       const isCollapsed = entryCollapsed[entry.id];
       let actionLabel = '';
       if (entry.action === 'wish') {
-        actionLabel = `<span style='color:#007aff;'>Wish</span>`;
+        let wishPreview = '';
+        if (entry.userWishes && entry.userWishes.length) {
+          const lastWish = entry.userWishes[entry.userWishes.length - 1];
+          wishPreview = `: <span style="color:#555; max-width:220px; display:inline-block; vertical-align:bottom; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(lastWish)}</span>`;
+        }
+        actionLabel = `<span style='color:#007aff;'>Wish${wishPreview}</span>`;
       } else if (entry.action === 'restore') {
         actionLabel = `<span style='color:#b31d28;'>Restored version</span>`;
       } else if (entry.action === 'manual') {
