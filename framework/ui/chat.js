@@ -304,7 +304,7 @@ export function renderChat(container, opts) {
   // Plan button handler
   planBtn.onclick = async () => {
     planBtn.disabled = true;
-    chatPlaceholder.textContent = 'Planning...';
+    chatPlaceholder.textContent = 'Searching for external libraries...';
     try {
       // Gather context
       const files = await listFiles();
@@ -358,15 +358,31 @@ export function renderChat(container, opts) {
       // Show feedback to user
       if (candidates.length === 0) {
         chatPlaceholder.innerHTML = 'No external libraries needed.';
+        // Remove any previous plan block from input
+        const planBlockRegex = /\n📚[\s\S]*$/m;
+        if (planBlockRegex.test(input.value)) {
+          input.value = input.value.replace(planBlockRegex, '');
+        }
       } else {
         let html = '';
         if (valid.length > 0) {
           html += '<span style="color:green;">Valid libraries:</span><br>' + valid.map(u => `<span style='color:green;'>${u}</span>`).join('<br>') + '<br>';
         }
         if (failed.length > 0) {
-          html += '<span style="color:#b31d28;">Failed libraries (blacklisted, will retry if you click Plan again):</span><br>' + failed.map(u => `<span style='color:#b31d28;'>${u}</span>`).join('<br>') + '<br>';
+          html += '<span style="color:#b31d28;">Failed libraries (blacklisted, will retry if you click search libraries again):</span><br>' + failed.map(u => `<span style='color:#b31d28;'>${u}</span>`).join('<br>') + '<br>';
         }
         chatPlaceholder.innerHTML = html;
+        // --- Inject/replace plan block in chat input ---
+        const planBlockRegex = /\n📚[\s\S]*$/m;
+        let planBlock = '\n📚 You may only use the following libraries:';
+        for (const url of valid) {
+          planBlock += `\n- ${url}`;
+        }
+        if (planBlockRegex.test(input.value)) {
+          input.value = input.value.replace(planBlockRegex, planBlock);
+        } else {
+          input.value = input.value + planBlock;
+        }
       }
       // Optionally, store the candidates for use in the main chat loop
       window.autoregretLibPlan = { candidates, valid, failed, rawResponse };
