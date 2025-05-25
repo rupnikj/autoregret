@@ -48,17 +48,6 @@ function escapeHTML(str) {
   });
 }
 
-// Helper for record/stop icon
-function MicIcon({ recording, size = 28 }) {
-  if (recording) {
-    // Stop icon (red square)
-    return `<svg width="${size}" height="${size}" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="6" width="16" height="16" rx="4" fill="#b31d28"/></svg>`;
-  } else {
-    // Record icon (red circle)
-    return `<svg width="${size}" height="${size}" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="14" cy="14" r="8" fill="#b31d28"/></svg>`;
-  }
-}
-
 function getYoloAutoSend() {
   const val = localStorage.getItem('autoregret_yolo_autosend');
   return val === null ? false : val === 'true';
@@ -183,6 +172,7 @@ export function renderChat(container, opts) {
   let mediaRecorder = null;
   let audioChunks = [];
   let isRecording = false;
+  let pendingSendAfterRecording = false;
 
   // Add mic button to the UI
   const micBtn = document.createElement('button');
@@ -196,9 +186,22 @@ export function renderChat(container, opts) {
   micBtn.style.display = 'flex';
   micBtn.style.alignItems = 'center';
   micBtn.style.justifyContent = 'center';
-  micBtn.textContent = isRecording ?  '🟥' : '🔴';
-  // micBtn.innerHTML = MicIcon({ recording: false, size: 40 });
+  micBtn.textContent = isRecording ? '🟥' : '🔴';
   sendBtn.parentNode.insertBefore(micBtn, sendBtn);
+
+  // Add pulsing effect CSS for send button (in shadow DOM)
+  const pulseStyle = document.createElement('style');
+  pulseStyle.textContent = `
+    .autoregret-send-pulse {
+      animation: autoregret-send-pulse-fade 1s infinite cubic-bezier(0.4,0,0.2,1);
+    }
+    @keyframes autoregret-send-pulse-fade {
+      0% { opacity: 1; }
+      50% { opacity: 0.3; }
+      100% { opacity: 1; }
+    }
+  `;
+  container.appendChild(pulseStyle);
 
   // Add Plan button to the UI
   const planBtn = document.createElement('button');
@@ -211,7 +214,6 @@ export function renderChat(container, opts) {
   planBtn.style.border = 'none';
   planBtn.style.background = 'transparent';
   planBtn.style.cursor = 'pointer';
-  // planBtn.style.marginLeft = '4px';
   sendBtn.parentNode.insertBefore(planBtn, sendBtn);
 
 
@@ -225,7 +227,13 @@ export function renderChat(container, opts) {
   };
 
   function updateMicIcon() {
-    micBtn.innerHTML = MicIcon({ recording: isRecording, size: 40 });
+    micBtn.textContent = isRecording ? '🟥' : '🔴';
+    // Pulse the send button if pendingSendAfterRecording
+    if (pendingSendAfterRecording) {
+      sendBtn.classList.add('autoregret-send-pulse');
+    } else {
+      sendBtn.classList.remove('autoregret-send-pulse');
+    }
   }
 
   // --- Scroll input into view on blur (mobile keyboard hide) ---
@@ -292,11 +300,19 @@ export function renderChat(container, opts) {
         if (getYoloAutoSend()) {
           sendBtn.click();
         }
+        // Manual mode: if user clicked send while recording, autosend after transcription
+        else if (pendingSendAfterRecording) {
+          pendingSendAfterRecording = false;
+          sendBtn.classList.remove('autoregret-send-pulse');
+          sendBtn.click();
+        }
       } else {
         chatPlaceholder.textContent = 'Transcription failed.';
+        sendBtn.classList.remove('autoregret-send-pulse');
       }
     } catch (err) {
       chatPlaceholder.textContent = 'Error: ' + err.message;
+      sendBtn.classList.remove('autoregret-send-pulse');
     }
   }
 
@@ -556,6 +572,7 @@ export function renderChat(container, opts) {
         sendBtn.disabled = false;
         // --- Clear draft on apply ---
         localStorage.removeItem(draftKey);
+        if (window.autoregretHighlightSuccess) window.autoregretHighlightSuccess();
         renderMessages();
       };
       if (revertBtn) revertBtn.onclick = () => {
@@ -567,6 +584,7 @@ export function renderChat(container, opts) {
         chatPlaceholder.textContent = 'Reverted!';
         // --- Clear draft on revert ---
         localStorage.removeItem(draftKey);
+        if (window.autoregretHighlightSuccess) window.autoregretHighlightSuccess();
         renderMessages();
       };
       if (diffBtn && diffArea) {
@@ -593,10 +611,19 @@ export function renderChat(container, opts) {
   }
 
   sendBtn.onclick = async () => {
+    // If recording, treat send as stop+autosend (manual mode only)
+    if (isRecording) {
+      pendingSendAfterRecording = true;
+      stopRecording();
+      sendBtn.classList.add('autoregret-send-pulse');
+      return;
+    }
     const text = input.value.trim();
     if (!text) return;
     // --- Clear draft on send ---
     localStorage.removeItem(draftKey);
+    // Remove pulse if present (sending now)
+    sendBtn.classList.remove('autoregret-send-pulse');
     // --- Manual mode: store as pending, do not commit ---
     if (!autoApply) {
       pendingUserMsg = { role: 'user', content: text };
@@ -636,6 +663,7 @@ export function renderChat(container, opts) {
         }
         chatPlaceholder.textContent = 'Choose Apply or Revert.';
         if (window.setAutoregretThinking) window.setAutoregretThinking(false);
+        if (window.autoregretHighlightSuccess) window.autoregretHighlightSuccess();
         renderMessages();
       } catch (e) {
         chatPlaceholder.textContent = 'Error: ' + e.message;
@@ -644,6 +672,7 @@ export function renderChat(container, opts) {
         pendingUserMsg = null;
         pendingAssistantMsg = null;
         if (window.setAutoregretThinking) window.setAutoregretThinking(false);
+        if (window.autoregretBlinkError) window.autoregretBlinkError();
         renderMessages();
       }
       return;
@@ -700,6 +729,7 @@ export function renderChat(container, opts) {
           localStorage.setItem('autoregret_chat_history', JSON.stringify(chatHistory));
         } catch (e) {}
         if (window.setAutoregretThinking) window.setAutoregretThinking(false);
+        if (window.autoregretHighlightSuccess) window.autoregretHighlightSuccess();
         renderMessages();
       } else if (match) {
         console.log('[AutoRegret] Handling full file response');
@@ -723,9 +753,11 @@ export function renderChat(container, opts) {
               chatPlaceholder.textContent = 'Patch auto-applied!';
             }
             if (window.setAutoregretThinking) window.setAutoregretThinking(false);
+            if (window.autoregretHighlightSuccess) window.autoregretHighlightSuccess();
           }, 0);
         } else {
           if (window.setAutoregretThinking) window.setAutoregretThinking(false);
+          if (window.autoregretHighlightSuccess) window.autoregretHighlightSuccess();
         }
       } else {
         console.log('[AutoRegret] Unrecognized GPT response format');
@@ -735,6 +767,7 @@ export function renderChat(container, opts) {
           localStorage.setItem('autoregret_chat_history', JSON.stringify(chatHistory));
         } catch (e) {}
         if (window.setAutoregretThinking) window.setAutoregretThinking(false);
+        if (window.autoregretBlinkError) window.autoregretBlinkError();
       }
       renderMessages();
       chatPlaceholder.textContent = 'Type or record what you want this website to self-modify.';
@@ -747,6 +780,7 @@ export function renderChat(container, opts) {
         chatPlaceholder.style.color = '#888'; // default
       }
       if (window.setAutoregretThinking) window.setAutoregretThinking(false);
+      if (window.autoregretBlinkError) window.autoregretBlinkError();
     }
     sendBtn.disabled = false;
   };

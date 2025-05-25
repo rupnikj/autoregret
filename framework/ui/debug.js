@@ -80,6 +80,8 @@ export function addDebugLog(text, type = 'log') {
       setTimeout(() => {
         tab.classList.remove('blip');
       }, 5000);
+      // Also blink the panel title
+      if (window.autoregretBlinkError) window.autoregretBlinkError();
     }
     if (tab && tab.classList.contains('active')) {
       const content = panel.shadowRoot.getElementById('tab-content');

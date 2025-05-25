@@ -241,6 +241,22 @@ export function initPanel() {
         50% { color: #ffb300; }
         100% { color: #007aff; }
       }
+      .autoregret-success-highlight {
+        animation: autoregret-success-highlight 1s cubic-bezier(0.4,0,0.2,1) 0s 3;
+      }
+      @keyframes autoregret-success-highlight {
+        0% { background: #e6ffe6; color: #22863a; box-shadow: 0 0 0 0 #b6fcb6; }
+        60% { background: #e6ffe6; color: #22863a; box-shadow: 0 0 12px 6px #b6fcb6; }
+        100% { background: none; color: #007aff; box-shadow: none; }
+      }
+      .autoregret-blink-error {
+        animation: autoregret-blink-error 1s cubic-bezier(0.4,0,0.2,1) 0s 5;
+      }
+      @keyframes autoregret-blink-error {
+        0% { background: #ffeaea; color: #b31d28; box-shadow: 0 0 0 0 #ffb6b6; }
+        60% { background: #ffeaea; color: #b31d28; box-shadow: 0 0 12px 6px #ffb6b6; }
+        100% { background: none; color: #007aff; box-shadow: none; }
+      }
     </style>
     <div id="panel-wrapper">
       <div class="panel-header">
@@ -735,5 +751,27 @@ export function initPanel() {
         autoregretTitle.classList.remove('autoregret-blink');
       }
     }
+  };
+  // --- Success highlight ---
+  window.autoregretHighlightSuccess = function () {
+    if (!autoregretTitle) return;
+    autoregretTitle.classList.remove('autoregret-success-highlight');
+    // Force reflow to restart animation
+    void autoregretTitle.offsetWidth;
+    autoregretTitle.classList.add('autoregret-success-highlight');
+    setTimeout(() => {
+      autoregretTitle.classList.remove('autoregret-success-highlight');
+    }, 3000);
+  };
+  // --- Error blink (5x) ---
+  window.autoregretBlinkError = function () {
+    if (!autoregretTitle) return;
+    autoregretTitle.classList.remove('autoregret-blink-error');
+    // Force reflow to restart animation
+    void autoregretTitle.offsetWidth;
+    autoregretTitle.classList.add('autoregret-blink-error');
+    setTimeout(() => {
+      autoregretTitle.classList.remove('autoregret-blink-error');
+    }, 1000 * 5);
   };
 } 
