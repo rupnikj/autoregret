@@ -242,12 +242,29 @@ export function initPanel() {
         100% { color: #007aff; }
       }
       .autoregret-success-highlight {
-        animation: autoregret-success-highlight 1s cubic-bezier(0.4,0,0.2,1) 0s 3;
+        animation: autoregret-success-highlight 3s cubic-bezier(0.4,0,0.2,1) 1;
       }
       @keyframes autoregret-success-highlight {
-        0% { background: #e6ffe6; color: #22863a; box-shadow: 0 0 0 0 #b6fcb6; }
-        60% { background: #e6ffe6; color: #22863a; box-shadow: 0 0 12px 6px #b6fcb6; }
-        100% { background: none; color: #007aff; box-shadow: none; }
+        0% {
+          background: #e6ffe6;
+          color: #22863a;
+          box-shadow: 0 0 0 0 #b6fcb6;
+        }
+        10% {
+          background: #e6ffe6;
+          color: #22863a;
+          box-shadow: 0 0 12px 6px #b6fcb6;
+        }
+        80% {
+          background: #e6ffe6;
+          color: #22863a;
+          box-shadow: 0 0 12px 6px #b6fcb6;
+        }
+        100% {
+          background: #f7faff;
+          color: #007aff;
+          box-shadow: none;
+        }
       }
       .autoregret-blink-error {
         animation: autoregret-blink-error 1s cubic-bezier(0.4,0,0.2,1) 0s 5;
