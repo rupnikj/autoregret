@@ -282,7 +282,7 @@ export function initPanel() {
           <span id="minimize-chevron" style="font-size:18px; transition: transform 0.2s;">▲</span>
         </span>
         <div style="display:flex; align-items:center;">
-          <button class="undo-btn" title="Undo last change" style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:18px; margin-left:8px; box-shadow:0 1px 2px #e0e6ef; transition:background 0.2s; position: static;">↩️</button>
+          <button class="undo-btn" title="Undo last change" style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:21px; margin-left:8px; box-shadow:0 1px 2px #e0e6ef; transition:background 0.2s; position: static;">↺</button>
           <button class="save-btn" title="Download as HTML" style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:18px; margin-left:8px; box-shadow:0 1px 2px #e0e6ef; transition:background 0.2s; position: static;">💾</button>
           <button class="purge-btn" title="Purge DB">🗑️</button>
           <button class="settings-btn" title="Settings">⚙️</button>
