@@ -72,5 +72,6 @@ async function saveCurrentFile() {
   if (newContent !== currentFileObj.content) {
     await saveFile({ ...currentFileObj, content: newContent }, 'manual', 'Manual edit');
     currentFileObj.content = newContent;
+    if (window.autoregretUpdateUndoBtnState) window.autoregretUpdateUndoBtnState();
   }
 } 

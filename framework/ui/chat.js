@@ -98,6 +98,7 @@ async function applyPatchToFS(patchText) {
     const fileObj = filesArr.find(f => f.name === name);
     if (fileObj) await saveFile({ ...fileObj, content: '', modifiable: false }, 'wish', latestWish);
   }
+  if (window.autoregretUpdateUndoBtnState) window.autoregretUpdateUndoBtnState();
 }
 
 export function renderChat(container, opts) {
@@ -551,6 +552,7 @@ export function renderChat(container, opts) {
               await applyPatchToFS(pendingAssistantMsg.content);
               if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
               chatPlaceholder.textContent = 'Patch applied!';
+              if (window.autoregretUpdateUndoBtnState) window.autoregretUpdateUndoBtnState();
             } catch (e) {
               chatPlaceholder.textContent = 'Patch error: ' + e.message;
             }
@@ -562,6 +564,7 @@ export function renderChat(container, opts) {
               await saveFile({ ...prevFile, content: pendingAssistantMsg.content }, 'wish', pendingUserMsg.content);
               if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
               chatPlaceholder.textContent = 'Patch applied!';
+              if (window.autoregretUpdateUndoBtnState) window.autoregretUpdateUndoBtnState();
             }
           }
         }
@@ -608,6 +611,7 @@ export function renderChat(container, opts) {
         };
       }
     }
+    if (window.autoregretUpdateUndoBtnState) window.autoregretUpdateUndoBtnState();
   }
 
   sendBtn.onclick = async () => {
@@ -665,6 +669,7 @@ export function renderChat(container, opts) {
         if (window.setAutoregretThinking) window.setAutoregretThinking(false);
         if (window.autoregretHighlightSuccess) window.autoregretHighlightSuccess();
         renderMessages();
+        if (window.autoregretUpdateUndoBtnState) window.autoregretUpdateUndoBtnState();
       } catch (e) {
         chatPlaceholder.textContent = 'Error: ' + e.message;
         input.disabled = false;
@@ -688,6 +693,7 @@ export function renderChat(container, opts) {
       localStorage.setItem('autoregret_user_wishes', JSON.stringify(userWishes));
     } catch (e) {}
     renderMessages();
+    if (window.autoregretUpdateUndoBtnState) window.autoregretUpdateUndoBtnState();
     input.value = '';
     chatPlaceholder.textContent = 'Thinking...';
     try {
@@ -715,19 +721,29 @@ export function renderChat(container, opts) {
         const patchFileMatch = response.match(/\*\*\* Update File: ([^\n]+)/);
         const patchFileName = patchFileMatch ? patchFileMatch[1].trim() : '[patch]';
         let error = undefined;
+        // FIX: Push assistant message to chatHistory and update localStorage BEFORE applying patch
+        const assistantMsg = { role: 'assistant', content: response, fileName: patchFileName, promptHistory };
+        chatHistory.push(assistantMsg);
+        try {
+          localStorage.setItem('autoregret_chat_history', JSON.stringify(chatHistory));
+        } catch (e) {}
         try {
           await applyPatchToFS(response);
           if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
           chatPlaceholder.textContent = 'Patch applied!';
+          if (window.autoregretUpdateUndoBtnState) window.autoregretUpdateUndoBtnState();
         } catch (e) {
           console.error('[AutoRegret] Patch error:', e);
           error = e.message;
           chatPlaceholder.textContent = 'Patch error: ' + e.message;
         }
-        chatHistory.push({ role: 'assistant', content: response, fileName: patchFileName, promptHistory, ...(error ? { error } : {}) });
-        try {
-          localStorage.setItem('autoregret_chat_history', JSON.stringify(chatHistory));
-        } catch (e) {}
+        // Optionally update the last assistant message with error info
+        if (error) {
+          assistantMsg.error = error;
+          try {
+            localStorage.setItem('autoregret_chat_history', JSON.stringify(chatHistory));
+          } catch (e) {}
+        }
         if (window.setAutoregretThinking) window.setAutoregretThinking(false);
         if (window.autoregretHighlightSuccess) window.autoregretHighlightSuccess();
         renderMessages();
@@ -751,6 +767,7 @@ export function renderChat(container, opts) {
               if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
               renderMessages();
               chatPlaceholder.textContent = 'Patch auto-applied!';
+              if (window.autoregretUpdateUndoBtnState) window.autoregretUpdateUndoBtnState();
             }
             if (window.setAutoregretThinking) window.setAutoregretThinking(false);
             if (window.autoregretHighlightSuccess) window.autoregretHighlightSuccess();
@@ -771,6 +788,7 @@ export function renderChat(container, opts) {
       }
       renderMessages();
       chatPlaceholder.textContent = 'Type or record what you want this website to self-modify.';
+      if (window.autoregretUpdateUndoBtnState) window.autoregretUpdateUndoBtnState();
     } catch (e) {
       console.error('[AutoRegret] sendBtn error:', e);
       chatPlaceholder.textContent = 'Error: ' + e.message;

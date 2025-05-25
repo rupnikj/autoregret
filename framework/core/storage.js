@@ -183,4 +183,36 @@ async function getAppHistoryById(id) {
 
 export function setSuppressSnapshots(val) {
   suppressSnapshots = !!val;
+}
+
+export async function deleteAppHistoryById(id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(APP_HISTORY_STORE, 'readwrite');
+    const store = tx.objectStore(APP_HISTORY_STORE);
+    const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = (e) => reject(e);
+  });
+}
+
+export async function restoreFilesAndStateNoSnapshot(entry) {
+  // Overwrite all modifiable files in a single transaction, without triggering saveFile or snapshot
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    for (const file of entry.files) {
+      store.put({ ...file, lastModified: Date.now() });
+    }
+    tx.oncomplete = () => {
+      // Restore chat history and wishes
+      if (entry.chatHistory) {
+        localStorage.setItem('autoregret_chat_history', JSON.stringify(entry.chatHistory));
+      }
+      if (entry.userWishes) {
+        localStorage.setItem('autoregret_user_wishes', JSON.stringify(entry.userWishes));
+      }
+      resolve();
+    };
+    tx.onerror = reject;
+  });
 } 

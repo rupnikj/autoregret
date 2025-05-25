@@ -1,7 +1,7 @@
 import { listAppHistory, restoreAppHistory } from '../core/storage.js';
 
 // History Tab (placeholder)
-let allCollapsed = false;
+let allCollapsed = true;
 let entryCollapsed = {};
 
 export function escapeHTML(str) {
@@ -114,6 +114,7 @@ export async function renderHistory(container) {
         // Refresh history to show new current version
         showHistory();
         if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
+        if (window.autoregretUpdateUndoBtnState) window.autoregretUpdateUndoBtnState();
       };
     });
   }
