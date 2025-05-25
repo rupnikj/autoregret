@@ -3,7 +3,7 @@
 // It uses OpenAI function-calling with cdnjs tool schemas to recommend suitable external JS libraries.
 
 import { cdnjsTools, getApiKey, getModel } from '../core/gpt.js';
-import { searchLibraries, getLibraryMeta } from '../core/libDiscover.js';
+import { searchCdnjsLibraries, getCdnjsLibraryMeta, getJsDelivrMeta } from '../core/libDiscover.js';
 
 /**
  * Run the library search assistant loop.
@@ -25,13 +25,16 @@ Your task is to recommend any additional external libraries which the AI assista
 the current wish does not need additional libs.
 The libraries must use the umd/global object pattern and not ESM (module, import). They have to be pure javascript and not css or typescript. We have a blacklist of libs that we verified are not suitable.
 - You have access to the following tools to help you discover and verify libraries:
-  - searchLibraries(keyword): Search cdnjs for libraries by keyword.
-  - getLibraryMeta(libName): Get metadata of a cdnjs library - versions and the list of files for the latest version
+  - searchCdnjsLibraries(keyword): Search cdnjs for libraries by keyword.
+  - getCdnjsLibraryMeta(libName): Get metadata of a cdnjs library - versions and the list of files for the latest version
+  - getJsDelivrMeta(libName): Get metadata of the latest versions fo a library from jsDelivr
 The search is useful to get alternative libs and the metadata is useful to help select a concrete file (sometimes the name itself tells you that it's umd, so a good candidate).
 By calling the tools you should come up with a list of candidates to verify. If the candidates pass we are done, otherwise we will continue searching (the blacklist of files will include
 libraries that failed to meet our criteria)
-- Use searchLibraries if you are unsure which lib to use (maybe the initial guess was blacklisted).
-- Use getLibraryMeta to get a list of valid files so we don't waste time on 404 errors. We also want the latest version of the lib (security reasons).
+- Use searchCdnjsLibraries if you are unsure which lib to use (maybe the initial guess was blacklisted).
+- Use getCdnjsLibraryMeta to get a list of valid files so we don't waste time on 404 errors. We also want the latest version of the lib (security reasons).
+- Use getJsDelivrMeta to get metadata from jsDelivr using npm package name.
+- When using jsDelivr you have to try npm package names without resorting to any search, for packages you remember can be useful.
 - Your final answer should be a JSON with two fields: reasoning (string) and candidates (list of complete ulr strings)
 
 `;
@@ -82,12 +85,15 @@ libraries that failed to meet our criteria)
       // 2. For each tool call, append a tool message
       for (const toolCall of msg.tool_calls) {
         let toolResult;
-        if (toolCall.function?.name === 'searchLibraries') {
+        if (toolCall.function?.name === 'searchCdnjsLibraries') {
           const args = JSON.parse(toolCall.function.arguments);
-          toolResult = await searchLibraries(args.keyword);
-        } else if (toolCall.function?.name === 'getLibraryMeta') {
+          toolResult = await searchCdnjsLibraries(args.keyword);
+        } else if (toolCall.function?.name === 'getCdnjsLibraryMeta') {
           const args = JSON.parse(toolCall.function.arguments);
-          toolResult = await getLibraryMeta(args.libName);
+          toolResult = await getCdnjsLibraryMeta(args.libName);
+        } else if (toolCall.function?.name === 'getJsDelivrMeta') {
+          const args = JSON.parse(toolCall.function.arguments);
+          toolResult = await getJsDelivrMeta(args.libName);
         } else {
           toolResult = { error: 'Unknown tool' };
         }

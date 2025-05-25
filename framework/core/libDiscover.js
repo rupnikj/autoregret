@@ -6,7 +6,7 @@
  * @param {string} keyword
  * @returns {Promise<Array>} Array of libraries
  */
-export async function searchLibraries(keyword) {
+export async function searchCdnjsLibraries(keyword) {
   logStep(`Searching cdnjs for: ${keyword}`);
   const url = `https://api.cdnjs.com/libraries?search=${encodeURIComponent(keyword)}`;
   const resp = await fetch(url);
@@ -20,7 +20,7 @@ export async function searchLibraries(keyword) {
  * @param {string} libName
  * @returns {Promise<Object>} Metadata object
  */
-export async function getLibraryMeta(libName) {
+export async function getCdnjsLibraryMeta(libName) {
   logStep(`Fetching metadata for: ${libName}`);
   const url = `https://api.cdnjs.com/libraries/${encodeURIComponent(libName)}`;
   const resp = await fetch(url);
@@ -111,4 +111,35 @@ export function logStep(msg, data) {
   } else {
     console.log(`[libDiscover] ${msg}`);
   }
+}
+
+/**
+ * Get jsDelivr npm package metadata (latest version and files)
+ * @param {string} libName - npm package name
+ * @returns {Promise<Object>} { latestVersion, files, rawMeta }
+ */
+export async function getJsDelivrMeta(libName) {
+  logStep(`Fetching jsDelivr meta for: ${libName}`);
+  // 1. Get package info
+  const metaUrl = `https://data.jsdelivr.com/v1/package/npm/${encodeURIComponent(libName)}`;
+  const metaResp = await fetch(metaUrl);
+  if (!metaResp.ok) throw new Error(`jsDelivr meta fetch failed: ${metaResp.status}`);
+  const meta = await metaResp.json();
+  // 2. Determine latest version
+  let latestVersion = meta.tags?.latest;
+  if (!latestVersion && Array.isArray(meta.versions) && meta.versions.length > 0) {
+    latestVersion = meta.versions[meta.versions.length - 1];
+  }
+  if (!latestVersion) throw new Error('No latest version found for ' + libName);
+  // 3. Get files for latest version
+  const filesUrl = `https://data.jsdelivr.com/v1/package/npm/${encodeURIComponent(libName)}@${latestVersion}`;
+  const filesResp = await fetch(filesUrl);
+  if (!filesResp.ok) throw new Error(`jsDelivr files fetch failed: ${filesResp.status}`);
+  const filesData = await filesResp.json();
+  // 4. Return
+  return {
+    latestVersion,
+    files: filesData.files,
+    rawMeta: meta
+  };
 } 
