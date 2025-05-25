@@ -1,5 +1,5 @@
 // Entry point for AutoRegret
-const VERSION = '1748195822740';
+const VERSION = '1748197328288';
 window.VERSION = VERSION;
 import { initPanel } from './framework/ui/panel.js';
 import { loadUserApp } from './framework/core/appLoader.js';
