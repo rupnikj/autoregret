@@ -282,6 +282,7 @@ export function initPanel() {
           <span id="minimize-chevron" style="font-size:18px; transition: transform 0.2s;">▲</span>
         </span>
         <div style="display:flex; align-items:center;">
+          <button class="undo-btn" title="Undo last change" style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:18px; margin-left:8px; box-shadow:0 1px 2px #e0e6ef; transition:background 0.2s; position: static;">↩️</button>
           <button class="save-btn" title="Download as HTML" style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:18px; margin-left:8px; box-shadow:0 1px 2px #e0e6ef; transition:background 0.2s; position: static;">💾</button>
           <button class="purge-btn" title="Purge DB">🗑️</button>
           <button class="settings-btn" title="Settings">⚙️</button>
@@ -790,5 +791,53 @@ export function initPanel() {
     setTimeout(() => {
       autoregretTitle.classList.remove('autoregret-blink-error');
     }, 1000 * 5);
+  };
+
+  const undoBtn = shadow.querySelector('.undo-btn');
+  async function updateUndoBtnState() {
+    const { listAppHistory } = await import('../core/storage.js');
+    const appHistory = await listAppHistory();
+    // Only enable if there are at least 2 versions (initial + something else)
+    if (appHistory.length > 1) {
+      undoBtn.disabled = false;
+      undoBtn.style.opacity = '';
+      undoBtn.title = 'Undo last change';
+    } else {
+      undoBtn.disabled = true;
+      undoBtn.style.opacity = '0.5';
+      undoBtn.title = 'Nothing to undo';
+    }
+  }
+  window.autoregretUpdateUndoBtnState = updateUndoBtnState;
+  updateUndoBtnState();
+  // Also update on tab switch and after undo
+  tabs.forEach(tab => tab.addEventListener('click', updateUndoBtnState));
+  undoBtn.onclick = async () => {
+    if (undoBtn.disabled) return;
+    undoBtn.disabled = true;
+    undoBtn.style.opacity = '0.5';
+    try {
+      const { listAppHistory, deleteAppHistoryById, restoreFilesAndStateNoSnapshot } = await import('../core/storage.js');
+      const appHistory = await listAppHistory();
+      if (appHistory.length < 2) return;
+      const current = appHistory[0];
+      const prev = appHistory[1];
+      // Remove the current version from history
+      await deleteAppHistoryById(current.id);
+      // Restore previous version's files, chat, wishes, but DO NOT create a new version
+      await restoreFilesAndStateNoSnapshot(prev);
+      // Optionally, reload UI/app to reflect changes
+      if (window.autoregretLoadUserApp) window.autoregretLoadUserApp();
+      if (currentTab === 'editor') renderEditor(content);
+      if (currentTab === 'history') renderHistory(content);
+      if (currentTab === 'chat') renderChat(content, { autoApply: getAutoApply() });
+      updateUndoBtnState();
+      window.autoregretHighlightSuccess && window.autoregretHighlightSuccess();
+    } catch (e) {
+      alert('Undo failed: ' + (e && e.message ? e.message : e));
+      window.autoregretBlinkError && window.autoregretBlinkError();
+    } finally {
+      updateUndoBtnState();
+    }
   };
 } 
