@@ -55,7 +55,7 @@ export const cdnjsTools = [
   {
     type: "function",
     function: {
-      name: "searchLibraries",
+      name: "searchCdnjsLibraries",
       description: "Search cdnjs for libraries matching a keyword.",
       parameters: {
         type: "object",
@@ -69,12 +69,26 @@ export const cdnjsTools = [
   {
     type: "function",
     function: {
-      name: "getLibraryMeta",
+      name: "getCdnjsLibraryMeta",
       description: "Get metadata (versions, files) for a cdnjs library.",
       parameters: {
         type: "object",
         properties: {
           libName: { type: "string", description: "Library name" }
+        },
+        required: ["libName"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getJsDelivrMeta",
+      description: "Get latest version and files for an npm package from jsdelivr.",
+      parameters: {
+        type: "object",
+        properties: {
+          libName: { type: "string", description: "npm package name" }
         },
         required: ["libName"]
       }

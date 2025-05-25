@@ -2,7 +2,6 @@ import { sendPrompt, getApiKey } from '../core/gpt.js';
 import { listFiles, loadFile, saveFile } from '../core/storage.js';
 import { previewDiff } from '../core/diffEngine.js';
 import { applyV4APatch, V4APatchError } from '../core/v4aPatch.js';
-import { searchLibraries, getLibraryMeta } from '../core/libDiscover.js';
 
 // Load chat history and wishes from localStorage if present
 let chatHistory = [];
@@ -28,7 +27,7 @@ function buildSystemPrompt({ diffOnly, allowExternalLibs }) {
   const systemMsgDiff = `- When the user asks for a change, respond ONLY with a V4A patch in the following format:\n*** Begin Patch\n*** Update File: <filename>\n@@ <context>\n-<old line>\n+<new line>\n*** End Patch\n- The patch must be valid and minimal. Do not include explanations, commentary, or extra text—ONLY the patch.\n- Only ONE file per patch.\n- Never change files that are not marked as modifiable.`;
   const systemMsgFullFile = `- When the user asks for a change, respond ONLY with the full, updated content of the relevant file.\n- Respond in the format:\n// File: <filename>\n<full file content>\n- The VERY FIRST LINE of your response MUST be // File: <filename> (no commentary, no blank lines before).\n- Only ONE file per response.\n- Do NOT return diffs.\n- The file should be minimal, clean, and correct.\n- Never change files that are not marked as modifiable.\n- Do NOT include explanations, commentary, or extra text—ONLY the file content.`;
   const systemMsgNoExtLibs = `- IMPORTANT: You MUST NOT use any external JavaScript libraries, CDN scripts, or load any code from the internet. Only use code that is already present in the app files. Do NOT add script tags or reference any external URLs.`;
-  const systemMsgExtLibs = `- If a user wish requires a new JavaScript library, you MUST use the global function loadExternalLibrary (do NOT use import or require). Example usage:\n\nloadExternalLibrary({\n  globalVar: 'pdfjsLib',\n  url: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js',\n  onload: () => {\n    // Use window.pdfjsLib here\n  }\n});\nAlways check for the global variable before using the library. Do NOT hardcode library URLs or add script tags manually. NEVER use import or export statements in user code.\n\n- When using loadExternalLibrary, always provide the full cdnjs file URL (case-sensitive, e.g., https://cdnjs.cloudflare.com/ajax/libs/tone/15.1.5/Tone.js). Only use cdnjs for external libraries and prefer universal module definition builds.`;
+  const systemMsgExtLibs = `- If a user wish requires a new JavaScript library, you MUST use the global function loadExternalLibrary (do NOT use import or require). Example usage:\n\nloadExternalLibrary({\n  globalVar: 'pdfjsLib',\n  url: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js',\n  onload: () => {\n    // Use window.pdfjsLib here\n  }\n});\nAlways check for the global variable before using the library. Do NOT hardcode library URLs or add script tags manually. NEVER use import or export statements in user code.\n\n- When using loadExternalLibrary, always provide the full cdnjs/jsDelivr file URL (case-sensitive, e.g., https://cdnjs.cloudflare.com/ajax/libs/tone/15.1.5/Tone.js). Only use cdnjs or jsDelivr for external libraries and prefer universal module definition builds.`;
   let systemPrompt = systemMsgCommon + '\n\n';
   if (diffOnly) {
     systemPrompt += systemMsgDiff + '\n\n';
@@ -778,20 +777,3 @@ function colorizeDiff(diffText) {
     }
   }).join('');
 }
-
-// Tool call handler for OpenAI function-calling (cdnjs tools)
-/**
- * Handles a tool call from the LLM (OpenAI function-calling style).
- * @param {Object} toolCall - { name: string, arguments: object }
- * @returns {Promise<any>} Tool result
- */
-export async function handleToolCall(toolCall) {
-  const { name, arguments: args } = toolCall;
-  if (name === 'searchLibraries') {
-    return await searchLibraries(args.keyword);
-  } else if (name === 'getLibraryMeta') {
-    return await getLibraryMeta(args.libName);
-  } else {
-    throw new Error('Unknown tool: ' + name);
-  }
-} 

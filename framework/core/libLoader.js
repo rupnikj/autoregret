@@ -1,9 +1,9 @@
 // Generic external library loader for AutoRegret (cdnjs only)
 
 /**
- * Loads an external library from a full cdnjs URL.
+ * Loads an external library from a full cdnjs/jsDelivr URL.
  * @param {Object} options
- * @param {string} options.url - Full cdnjs file URL (case-sensitive, e.g. https://cdnjs.cloudflare.com/ajax/libs/tone/15.1.5/Tone.js)
+ * @param {string} options.url - Full cdnjs/jsDelivr file URL (case-sensitive, e.g. https://cdnjs.cloudflare.com/ajax/libs/tone/15.1.5/Tone.js)
  * @param {string} options.globalVar - The global variable to check for library presence
  * @param {function} [options.onload] - Callback after load
  */
@@ -27,7 +27,7 @@ export function loadExternalLibrary({ url, globalVar, onload }) {
     if (onload) onload();
     return Promise.resolve();
   }
-  if (!url) throw new Error('You must provide a full cdnjs file URL to loadExternalLibrary.');
+  if (!url) throw new Error('You must provide a full cdnjs/jsDelivr file URL to loadExternalLibrary.');
   // First, check if the URL is reachable and status is 200
   return fetch(url, { method: 'HEAD' })
     .then(resp => {
