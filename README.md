@@ -1,6 +1,6 @@
 # AutoRegret
 
-A self-modifying frontend app experiment powered by GPT-4 and a virtual file system. See `AutoRegret-Spec.md` for full details and architecture.
+A self-modifying frontend app experiment powered by GPT-4 and a virtual file system. See `AutoRegret-Spec.md` for full details and architecture. Hosted via github pages [here](https://rupnikj.github.io/autoregret).
 
 ## Quick Start
 
