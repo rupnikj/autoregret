@@ -217,6 +217,19 @@ export function renderChat(container, opts) {
   planBtn.style.cursor = 'pointer';
   sendBtn.parentNode.insertBefore(planBtn, sendBtn);
 
+  // Add Code Reasoning button to the UI
+  const reasoningBtn = document.createElement('button');
+  reasoningBtn.id = 'chat-reasoning';
+  reasoningBtn.textContent = '💡';
+  reasoningBtn.title = 'Get code reasoning and suggestions';
+  reasoningBtn.style.height = '48px';
+  reasoningBtn.style.minWidth = '40px';
+  reasoningBtn.style.borderRadius = '8px';
+  reasoningBtn.style.fontSize = '28px';
+  reasoningBtn.style.border = 'none';
+  reasoningBtn.style.background = 'transparent';
+  reasoningBtn.style.cursor = 'pointer';
+  sendBtn.parentNode.insertBefore(reasoningBtn, sendBtn);
 
   // --- Mic button handler (toggle) ---
   micBtn.onclick = async () => {
@@ -408,6 +421,62 @@ export function renderChat(container, opts) {
     planBtn.disabled = false;
   };
 
+  // Code Reasoning button handler
+  let reasoningActive = false;
+  let lastReasoningBlock = '';
+  reasoningBtn.onclick = async () => {
+    if (reasoningActive) {
+      // Remove reasoning block from chat input
+      const planBlockRegex = /\n💡[\s\S]*$/m;
+      if (planBlockRegex.test(input.value)) {
+        input.value = input.value.replace(planBlockRegex, '');
+      }
+      reasoningBtn.textContent = '💡';
+      reasoningBtn.title = 'Get code reasoning and suggestions';
+      reasoningActive = false;
+      lastReasoningBlock = '';
+      return;
+    }
+    reasoningBtn.disabled = true;
+    chatPlaceholder.textContent = 'Reasoning about your wish...';
+    try {
+      // Gather context
+      const files = await listFiles();
+      const modFiles = files.filter(f => f.modifiable);
+      const code = modFiles.map(f => `// File: ${f.name}\n${f.content}`).join('\n\n');
+      const wishHistory = userWishes;
+      const currentWish = input.value.trim();
+      // Dynamically import the assistant
+      const { runCodeReasoningAssistant } = await import('./codeReasoningAssistant.js');
+      const { reasoning, rawResponse } = await runCodeReasoningAssistant({ code, wishHistory, currentWish });
+      // Show feedback to user as a chat message
+      if (reasoning) {
+        chatHistory.push({ role: 'reasoning', content: reasoning, timestamp: Date.now() });
+        try { localStorage.setItem('autoregret_chat_history', JSON.stringify(chatHistory)); } catch (e) {}
+        renderMessages();
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        // --- Append reasoning to chat input ---
+        const planBlockRegex = /\n💡[\s\S]*$/m;
+        let reasoningBlock = `\n💡 ${reasoning}`;
+        lastReasoningBlock = reasoningBlock;
+        if (planBlockRegex.test(input.value)) {
+          input.value = input.value.replace(planBlockRegex, reasoningBlock);
+        } else {
+          input.value = input.value + reasoningBlock;
+        }
+        reasoningBtn.textContent = '✖️';
+        reasoningBtn.title = 'Remove reasoning from chat input';
+        reasoningActive = true;
+      } else {
+        chatPlaceholder.textContent = 'No reasoning returned.';
+      }
+      window.autoregretReasoning = { reasoning, rawResponse };
+    } catch (e) {
+      chatPlaceholder.textContent = 'Reasoning error: ' + e.message;
+    }
+    reasoningBtn.disabled = false;
+  };
+
   function renderMessages() {
     // console.log('[AutoRegret] Rendering chat messages. chatHistory:', JSON.stringify(chatHistory, null, 2));
     let html = '';
@@ -464,6 +533,10 @@ export function renderChat(container, opts) {
             </div>
           </div>`;
         return `<div style="margin-bottom:6px;"><b>GPT:</b> ${escapeHTML(msg.content)}${promptDetails}</div>`;
+      }
+      if (msg.role === 'reasoning') {
+        // Render code reasoning as a special block
+        return `<div style="margin-bottom:8px;"><b>Reasoning:</b><div style='background:#f7faff; color:#222; border-left:4px solid #007aff; padding:10px 14px; border-radius:6px; margin:4px 0; font-size:15px; white-space:pre-wrap; max-height:40vh; overflow:auto;'>${escapeHTML(msg.content)}</div></div>`;
       }
       return `<div style="margin-bottom:6px;"><b>${msg.role === 'user' ? 'You' : 'GPT'}:</b> ${escapeHTML(msg.content)}</div>`;
     }).join('');
